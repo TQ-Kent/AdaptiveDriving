@@ -1,0 +1,17 @@
+{
+    "name": "Racing.AI.Inference",
+    "rootNamespace": "Racing.AI.Inference",
+    "references": [
+        "Racing.Contracts",
+        "Unity.InferenceEngine"
+    ],
+    "includePlatforms": [],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+}

@@ -1,0 +1,33 @@
+{
+    "name": "Racing.Tests.PlayMode",
+    "rootNamespace": "Racing.Tests.PlayMode",
+    "references": [
+        "Racing.Contracts",
+        "Racing.Vehicle",
+        "Racing.Track",
+        "Racing.Gameplay",
+        "Racing.Policy",
+        "Racing.AI.Driving",
+        "Racing.AI.Inference",
+        "Racing.AI.Adaptation",
+        "Racing.Telemetry",
+        "Racing.Integration",
+        "Racing.UI",
+        "Racing.Evaluation",
+        "UnityEngine.TestRunner",
+        "UnityEditor.TestRunner"
+    ],
+    "includePlatforms": [],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": true,
+    "precompiledReferences": [
+        "nunit.framework.dll"
+    ],
+    "autoReferenced": false,
+    "defineConstraints": [
+        "UNITY_INCLUDE_TESTS"
+    ],
+    "versionDefines": [],
+    "noEngineReferences": false
+}

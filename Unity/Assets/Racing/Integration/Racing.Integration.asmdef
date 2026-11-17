@@ -1,0 +1,23 @@
+{
+    "name": "Racing.Integration",
+    "rootNamespace": "Racing.Integration",
+    "references": [
+        "Racing.Contracts",
+        "Racing.Vehicle",
+        "Racing.Track",
+        "Racing.Gameplay",
+        "Racing.Policy",
+        "Racing.AI.Driving",
+        "Racing.AI.Adaptation",
+        "Racing.Telemetry"
+    ],
+    "includePlatforms": [],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+}

@@ -1,0 +1,20 @@
+{
+    "name": "Racing.Editor",
+    "rootNamespace": "Racing.Editor",
+    "references": [
+        "Racing.Contracts",
+        "Racing.Track",
+        "Unity.Splines"
+    ],
+    "includePlatforms": [
+        "Editor"
+    ],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+}

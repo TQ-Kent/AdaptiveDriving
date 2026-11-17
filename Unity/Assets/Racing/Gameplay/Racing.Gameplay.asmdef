@@ -1,0 +1,18 @@
+{
+    "name": "Racing.Gameplay",
+    "rootNamespace": "Racing.Gameplay",
+    "references": [
+        "Racing.Contracts",
+        "Racing.Track",
+        "Racing.Vehicle"
+    ],
+    "includePlatforms": [],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+}
