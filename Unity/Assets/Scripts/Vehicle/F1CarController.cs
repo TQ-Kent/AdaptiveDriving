@@ -1,4 +1,3 @@
-using System.Collections.Generic;
 using F1Racing.Track;
 using UnityEngine;
 
@@ -75,6 +74,16 @@ namespace F1Racing.Vehicle
         [Header("Track Reference")]
         public F1TrackGenerator trackReference;
 
+        [Tooltip("When true, keyboard input is ignored and Command is written by another driver (e.g. AI).")]
+        public bool ExternalControl;
+
+        /// <summary>Driver intent applied every physics tick; set this from an AI driver when ExternalControl is on.</summary>
+        public VehicleCommand Command
+        {
+            get => _command;
+            set => _command = value.Sanitized();
+        }
+
         // Runtime telemetry
         public float CurrentSpeedKmh { get; private set; }
         public int CurrentGear { get; private set; } = 1;
@@ -83,11 +92,8 @@ namespace F1Racing.Vehicle
         public bool IsBraking { get; private set; }
 
         private Rigidbody _rb;
-        private float _throttleInput;
-        private float _steerInput;
+        private VehicleCommand _command;
         private float _currentSteerAngle;
-        private bool _handbrakeInput;
-        private bool _drsInput;
         private Material _brakeLightMat;
 
         // Procedural engine synth state (used when engineAudioSource has no AudioClip)
@@ -150,24 +156,18 @@ namespace F1Racing.Vehicle
 
         private void ReadInputs()
         {
-            switch (controlMode)
+            if (ExternalControl) return;
+            bool p1 = controlMode == ControlMode.Player1_WASD;
+            _command = new VehicleCommand
             {
-                case ControlMode.Player1_WASD:
-                    _throttleInput = (Input.GetKey(KeyCode.W) ? 1f : 0f) - (Input.GetKey(KeyCode.S) ? 1f : 0f);
-                    _steerInput = (Input.GetKey(KeyCode.D) ? 1f : 0f) - (Input.GetKey(KeyCode.A) ? 1f : 0f);
-                    _handbrakeInput = Input.GetKey(KeyCode.Space);
-                    _drsInput = Input.GetKey(KeyCode.LeftShift);
-                    if (Input.GetKeyDown(KeyCode.R)) ResetToTrack();
-                    break;
-
-                case ControlMode.Player2_Arrows:
-                    _throttleInput = (Input.GetKey(KeyCode.UpArrow) ? 1f : 0f) - (Input.GetKey(KeyCode.DownArrow) ? 1f : 0f);
-                    _steerInput = (Input.GetKey(KeyCode.RightArrow) ? 1f : 0f) - (Input.GetKey(KeyCode.LeftArrow) ? 1f : 0f);
-                    _handbrakeInput = Input.GetKey(KeyCode.RightControl);
-                    _drsInput = Input.GetKey(KeyCode.RightShift);
-                    if (Input.GetKeyDown(KeyCode.Backspace)) ResetToTrack();
-                    break;
-            }
+                Throttle = Input.GetKey(p1 ? KeyCode.W : KeyCode.UpArrow) ? 1f : 0f,
+                Brake = Input.GetKey(p1 ? KeyCode.S : KeyCode.DownArrow) ? 1f : 0f,
+                Steer = (Input.GetKey(p1 ? KeyCode.D : KeyCode.RightArrow) ? 1f : 0f)
+                      - (Input.GetKey(p1 ? KeyCode.A : KeyCode.LeftArrow) ? 1f : 0f),
+                Handbrake = Input.GetKey(p1 ? KeyCode.Space : KeyCode.RightControl),
+                Drs = Input.GetKey(p1 ? KeyCode.LeftShift : KeyCode.RightShift),
+            };
+            if (Input.GetKeyDown(p1 ? KeyCode.R : KeyCode.Backspace)) ResetToTrack();
         }
 
         private void ApplyDownforce()
@@ -176,7 +176,7 @@ namespace F1Racing.Vehicle
             float downforce = downforceCoefficient * speed * speed;
             _rb.AddForce(-transform.up * downforce, ForceMode.Force);
 
-            IsDrsActive = _drsInput && CurrentSpeedKmh >= drsMinSpeedKmh && _throttleInput > 0.1f;
+            IsDrsActive = _command.Drs && CurrentSpeedKmh >= drsMinSpeedKmh && _command.Throttle > 0.1f;
             _rb.linearDamping = IsDrsActive ? drsLinearDamping : baseLinearDamping;
         }
 
@@ -184,7 +184,7 @@ namespace F1Racing.Vehicle
         {
             float speedFactor = Mathf.Clamp01(CurrentSpeedKmh / topSpeedKmh);
             float maxAngle = Mathf.Lerp(maxSteerAngleLowSpeed, maxSteerAngleHighSpeed, Mathf.Pow(speedFactor, 0.75f));
-            float targetAngle = _steerInput * maxAngle;
+            float targetAngle = _command.Steer * maxAngle;
 
             float effectiveSteerSpeed = Mathf.Lerp(steerSpeed, steerSpeed * 0.65f, speedFactor);
             _currentSteerAngle = Mathf.Lerp(_currentSteerAngle, targetAngle, Time.fixedDeltaTime * effectiveSteerSpeed);
@@ -195,7 +195,7 @@ namespace F1Racing.Vehicle
 
         private void ApplyStabilityControl()
         {
-            if (_handbrakeInput || CurrentSpeedKmh < 50f) return;
+            if (_command.Handbrake || CurrentSpeedKmh < 50f) return;
 
             bool rearGrounded = (rearLeftCollider != null && rearLeftCollider.isGrounded) ||
                                 (rearRightCollider != null && rearRightCollider.isGrounded);
@@ -221,29 +221,30 @@ namespace F1Racing.Vehicle
             float forwardSpeed = Vector3.Dot(_rb.linearVelocity, transform.forward);
             float effectiveTopSpeed = IsDrsActive ? drsTopSpeedKmh : topSpeedKmh;
 
-            bool wantsReverse = _throttleInput < -0.05f && forwardSpeed < 2f;
-            bool wantsBrake = (_throttleInput < -0.05f && forwardSpeed >= 2f) || _handbrakeInput;
+            bool handbrake = _command.Handbrake;
+            bool wantsReverse = _command.Brake > 0.05f && forwardSpeed < 2f;
+            bool wantsBrake = (_command.Brake > 0.05f && forwardSpeed >= 2f) || handbrake;
             IsBraking = wantsBrake;
 
             float appliedMotor = 0f;
             float appliedBrake = 0f;
 
-            if (_handbrakeInput)
+            if (handbrake)
             {
                 appliedBrake = handbrakeTorque;
             }
             else if (wantsBrake)
             {
-                appliedBrake = brakeTorque * Mathf.Abs(_throttleInput);
+                appliedBrake = brakeTorque * _command.Brake;
             }
-            else if (_throttleInput > 0.05f && CurrentSpeedKmh < effectiveTopSpeed)
+            else if (_command.Throttle > 0.05f && CurrentSpeedKmh < effectiveTopSpeed)
             {
                 float torqueBoost = IsDrsActive ? drsMotorBoostMultiplier : 1f;
-                appliedMotor = _throttleInput * motorTorque * torqueBoost;
+                appliedMotor = _command.Throttle * motorTorque * torqueBoost;
             }
             else if (wantsReverse && CurrentSpeedKmh < reverseTopSpeedKmh)
             {
-                appliedMotor = _throttleInput * motorTorque * 0.55f;
+                appliedMotor = -_command.Brake * motorTorque * 0.55f;
             }
 
             // Rear-wheel drive (F1 spec)
@@ -253,8 +254,8 @@ namespace F1Racing.Vehicle
             // Front-biased braking
             if (frontLeftCollider != null) frontLeftCollider.brakeTorque = appliedBrake * 1.15f;
             if (frontRightCollider != null) frontRightCollider.brakeTorque = appliedBrake * 1.15f;
-            if (rearLeftCollider != null) rearLeftCollider.brakeTorque = _handbrakeInput ? handbrakeTorque : appliedBrake * 0.85f;
-            if (rearRightCollider != null) rearRightCollider.brakeTorque = _handbrakeInput ? handbrakeTorque : appliedBrake * 0.85f;
+            if (rearLeftCollider != null) rearLeftCollider.brakeTorque = handbrake ? handbrakeTorque : appliedBrake * 0.85f;
+            if (rearRightCollider != null) rearRightCollider.brakeTorque = handbrake ? handbrakeTorque : appliedBrake * 0.85f;
         }
 
         private void UpdateGearAndRpm()
@@ -274,7 +275,7 @@ namespace F1Racing.Vehicle
             float gearRatio = Mathf.Clamp01((CurrentSpeedKmh - prevGearMax) / Mathf.Max(1f, currGearMax - prevGearMax));
 
             float targetRpm = Mathf.Lerp(4200f, 13200f, gearRatio);
-            if (_throttleInput > 0.1f) targetRpm += 650f;
+            if (_command.Throttle > 0.1f) targetRpm += 650f;
             CurrentRpm = Mathf.Lerp(CurrentRpm, Mathf.Clamp(targetRpm, 3800f, 13800f), Time.deltaTime * 12f);
         }
 
@@ -287,13 +288,13 @@ namespace F1Racing.Vehicle
 
             if (steeringWheelMesh != null)
             {
-                float wheelAngle = -_steerInput * maxSteeringWheelRotation;
+                float wheelAngle = -_command.Steer * maxSteeringWheelRotation;
                 steeringWheelMesh.localRotation = Quaternion.Euler(0f, 0f, wheelAngle);
             }
 
             if (driverHelmetMesh != null)
             {
-                float headLean = _steerInput * 10f;
+                float headLean = _command.Steer * 10f;
                 driverHelmetMesh.localRotation = Quaternion.Lerp(
                     driverHelmetMesh.localRotation,
                     Quaternion.Euler(0f, headLean * 0.5f, -headLean),
@@ -334,7 +335,7 @@ namespace F1Racing.Vehicle
                     isSlipping = true;
             }
 
-            bool emitSkid = _handbrakeInput || (IsBraking && CurrentSpeedKmh > 65f) || isSlipping;
+            bool emitSkid = _command.Handbrake || (IsBraking && CurrentSpeedKmh > 65f) || isSlipping;
 
             if (skidTrails != null)
             {
@@ -393,27 +394,15 @@ namespace F1Racing.Vehicle
         /// </summary>
         public void ResetToTrack()
         {
-            if (trackReference == null || trackReference.Waypoints.Count == 0) return;
+            if (trackReference == null) return;
+            if (trackReference.Spline == null) trackReference.RebuildSplineOnly();
+            CatmullRomSpline spline = trackReference.Spline;
+            if (spline == null || spline.Samples.Count == 0) return;
 
-            IReadOnlyList<Vector3> waypoints = trackReference.Waypoints;
-            float bestDist = float.MaxValue;
-            int bestIdx = 0;
-            for (int i = 0; i < waypoints.Count; i++)
-            {
-                float d = (waypoints[i] - transform.position).sqrMagnitude;
-                if (d < bestDist)
-                {
-                    bestDist = d;
-                    bestIdx = i;
-                }
-            }
-
-            int nextIdx = (bestIdx + 1) % waypoints.Count;
-            Vector3 forward = (waypoints[nextIdx] - waypoints[bestIdx]).normalized;
-
+            var sample = spline.Samples[spline.FindNearestSampleIndex(transform.position)];
             _rb.linearVelocity = Vector3.zero;
             _rb.angularVelocity = Vector3.zero;
-            transform.SetPositionAndRotation(waypoints[bestIdx] + Vector3.up * 0.8f, Quaternion.LookRotation(forward, Vector3.up));
+            transform.SetPositionAndRotation(sample.Position + Vector3.up * 0.8f, Quaternion.LookRotation(sample.Tangent, Vector3.up));
         }
 
         /// <summary>

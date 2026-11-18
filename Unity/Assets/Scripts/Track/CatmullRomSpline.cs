@@ -137,5 +137,19 @@ namespace F1Racing.Track
             }
             return _samples[low];
         }
+
+        /// <summary>Index of the sample closest to a world position.</summary>
+        // shortcut: brute force over every sample (~400), fine for a few cars; use a windowed search around the last index if car count grows.
+        public int FindNearestSampleIndex(Vector3 position)
+        {
+            int best = 0;
+            float bestSq = float.MaxValue;
+            for (int i = 0; i < _samples.Count; i++)
+            {
+                float sq = (_samples[i].Position - position).sqrMagnitude;
+                if (sq < bestSq) { bestSq = sq; best = i; }
+            }
+            return best;
+        }
     }
 }

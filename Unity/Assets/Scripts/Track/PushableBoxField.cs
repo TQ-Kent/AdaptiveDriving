@@ -40,17 +40,9 @@ namespace F1Racing.Track
         public float carryCarVelocity = 0.45f; // fraction of the car's velocity added to each box
         public float fxScale = 1f;
 
-        [Header("Laps")]
-        [Tooltip("Spline distance of the start/finish line (matches F1TrackGenerator's grid).")]
-        public float startLineDistance = 140f;
-
-        public int LapsCompleted { get; private set; }
-
         private readonly List<List<Rigidbody>> _stacks = new List<List<Rigidbody>>();
         private readonly List<bool> _exploded = new List<bool>();
-        private readonly Dictionary<F1CarController, LapState> _lapStates = new Dictionary<F1CarController, LapState>();
-        private F1CarController[] _cars = new F1CarController[0];
-        private float _nextCarScan;
+        private TrackProgress[] _progress = new TrackProgress[0];
         private Material[] _mats;
         private PhysicsMaterial _physMat;
         private bool _figureTried;
@@ -60,13 +52,6 @@ namespace F1Racing.Track
         private string _toast;
         private float _toastUntil;
         private GUIStyle _toastStyle;
-
-        private class LapState
-        {
-            public float lastDistance = -1f;
-            public bool passedHalfway;
-            public int laps;
-        }
 
         /// <summary>Created by GameModeManager in Fun mode.</summary>
         public static PushableBoxField Create(F1TrackGenerator track)
@@ -81,7 +66,21 @@ namespace F1Racing.Track
         private void Start()
         {
             if (track == null) track = FindAnyObjectByType<F1TrackGenerator>();
+            _progress = FindObjectsByType<TrackProgress>();
+            foreach (TrackProgress p in _progress) p.LapCompleted += OnLapCompleted;
             Spawn();
+        }
+
+        private void OnDestroy()
+        {
+            foreach (TrackProgress p in _progress) if (p != null) p.LapCompleted -= OnLapCompleted;
+        }
+
+        private void OnLapCompleted(TrackProgress p)
+        {
+            Spawn();
+            var car = p.GetComponent<F1CarController>();
+            ShowToast($"{(car != null ? car.carName : p.name)}  LAP {p.Laps} complete  -  boxes reset");
         }
 
         private void Update()
@@ -91,7 +90,6 @@ namespace F1Racing.Track
                 Spawn();
                 ShowToast("Boxes reset");
             }
-            TrackLaps();
         }
 
         // ---------------- Spawning ----------------
@@ -241,58 +239,6 @@ namespace F1Racing.Track
                 rb.AddForce(carVelocity * carryCarVelocity, ForceMode.VelocityChange);
                 rb.AddTorque(Random.insideUnitSphere * 12f, ForceMode.VelocityChange);
             }
-        }
-
-        // ---------------- Lap tracking ----------------
-
-        private void TrackLaps()
-        {
-            CatmullRomSpline spline = GetSpline();
-            if (spline == null) return;
-
-            if (Time.unscaledTime >= _nextCarScan)
-            {
-                _cars = FindObjectsByType<F1CarController>();
-                _nextCarScan = Time.unscaledTime + 2f;
-            }
-
-            float length = spline.TotalLength;
-            foreach (F1CarController car in _cars)
-            {
-                if (car == null) continue;
-                if (!_lapStates.TryGetValue(car, out LapState st)) _lapStates[car] = st = new LapState();
-
-                // Progress measured from the start line, 0..length.
-                float d = Mathf.Repeat(NearestDistance(spline, car.transform.position) - startLineDistance, length);
-                if (st.lastDistance >= 0f)
-                {
-                    if (d > length * 0.4f && d < length * 0.6f) st.passedHalfway = true;
-
-                    // Crossed the line forwards: last frame near the end of the lap, now near the start.
-                    bool crossed = st.lastDistance > length * 0.8f && d < length * 0.2f;
-                    if (crossed && st.passedHalfway)
-                    {
-                        st.passedHalfway = false;
-                        st.laps++;
-                        LapsCompleted++;
-                        Spawn();
-                        ShowToast($"{car.carName}  LAP {st.laps} complete  -  boxes reset");
-                    }
-                }
-                st.lastDistance = d;
-            }
-        }
-
-        private static float NearestDistance(CatmullRomSpline spline, Vector3 pos)
-        {
-            IReadOnlyList<CatmullRomSpline.SamplePoint> samples = spline.Samples;
-            float best = float.MaxValue, dist = 0f;
-            for (int i = 0; i < samples.Count; i++)
-            {
-                float sq = (samples[i].Position - pos).sqrMagnitude;
-                if (sq < best) { best = sq; dist = samples[i].Distance; }
-            }
-            return dist;
         }
 
         // ---------------- Helpers ----------------

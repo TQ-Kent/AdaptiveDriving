@@ -1,5 +1,6 @@
 using F1Racing.CameraSystem;
 using F1Racing.Track;
+using F1Racing.Vehicle;
 using F1Racing.Vehicle.Characters;
 using UnityEngine;
 using UnityEngine.SceneManagement;
@@ -44,6 +45,9 @@ namespace F1Racing.UI
 
             if (FindAnyObjectByType<GameModeManager>() == null)
                 new GameObject("GameModeManager").AddComponent<GameModeManager>();
+
+            foreach (F1CarController car in FindObjectsByType<F1CarController>())
+                if (car.GetComponent<TrackProgress>() == null) car.gameObject.AddComponent<TrackProgress>().track = track;
 
             F1MiniMap.Create(track);
             FirstPersonCameraMode.AttachToMainChaseCamera();
