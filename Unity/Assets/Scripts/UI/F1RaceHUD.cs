@@ -62,7 +62,7 @@ namespace F1Racing.UI
 
             GUI.Box(new Rect(Screen.width * 0.5f - 230, Screen.height - 42, 460, 28), "", _panelStyle);
             GUI.Label(new Rect(Screen.width * 0.5f - 220, Screen.height - 38, 440, 22),
-                $"{camText}  |  R: Reset P1", _labelStyle);
+                $"{camText}  |  P: First person  |  R: Reset P1", _labelStyle);
         }
 
         private void DrawCarTelemetry(Rect rect, F1CarController car, string subtitle)

@@ -79,10 +79,10 @@ namespace F1Racing.UI
             Stroke(px, pts, trackHalfWidthPx + 2.5f, new Color32(15, 15, 18, 255));
             Stroke(px, pts, trackHalfWidthPx, new Color32(200, 205, 215, 255));
 
-            // Start/finish marker (spline distance 140 m, as used by the grid).
+            // Start/finish marker.
             if (track.Spline != null)
             {
-                var s = track.Spline.GetSampleAtDistance(140f);
+                var s = track.Spline.GetSampleAtDistance(F1TrackGenerator.StartLineDistance);
                 Vector2 a = ToTex(s.Position - s.Right * 10f), b = ToTex(s.Position + s.Right * 10f);
                 Line(px, a, b, 2.2f, new Color32(255, 70, 60, 255));
             }

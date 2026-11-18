@@ -51,7 +51,7 @@ namespace F1Racing.UI
             if (FunMode)
             {
                 PushableBoxField.Create(track);
-                CharacterModelSetup.Apply();
+                CharacterModelSwitcher.Attach(GameObject.Find("F1_Car_1_Red"));
             }
         }
 

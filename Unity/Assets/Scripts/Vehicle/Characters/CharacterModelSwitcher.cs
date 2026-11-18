@@ -3,9 +3,22 @@ using UnityEngine;
 
 namespace F1Racing.Vehicle.Characters
 {
-    /// <summary>Holds the available models and cycles them with a key.</summary>
+    /// <summary>
+    /// Replaces the red car's visuals with PMX character models (speed-driven run cycle +
+    /// front camera on F). Press M to cycle models; the last entry is the original car.
+    /// Physics, colliders and the controller are untouched. Models live in Resources/Characters/.
+    /// </summary>
     public class CharacterModelSwitcher : MonoBehaviour
     {
+        /// <summary>Called by GameModeManager in Fun mode.</summary>
+        public static void Attach(GameObject car)
+        {
+            if (car == null || car.GetComponent<CharacterModelSwitcher>() != null) return;
+            var front = new GameObject("CharacterFrontCamera", typeof(Camera)).AddComponent<CharacterFrontCamera>();
+            front.carRoot = car.transform;
+            car.AddComponent<CharacterModelSwitcher>().frontCamera = front;
+        }
+
         [System.Serializable]
         public struct Entry
         {
@@ -29,9 +42,6 @@ namespace F1Racing.Vehicle.Characters
         private int _index = -1;
         private float _toastUntil;
         private GUIStyle _toastStyle;
-
-        /// <summary>Face of the currently shown character, or null when the original car is shown.</summary>
-        public Transform CurrentFaceAnchor => CurrentModel?.FaceAnchor;
 
         /// <summary>The currently shown character model, or null when the original car is shown.</summary>
         public PmxModel CurrentModel =>

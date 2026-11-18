@@ -196,7 +196,7 @@ namespace F1Racing.Track
             screen.transform.localPosition = new Vector3(0f, 8.2f, -0.26f);
             screen.transform.localScale = new Vector3(10.8f, 6.0f, 1f);
             screen.GetComponent<Renderer>().sharedMaterial = _jumbotronScreenMat;
-            DestroyImmediateSafe(screen.GetComponent<Collider>());
+            F1TrackGenerator.DestroyImmediateSafe(screen.GetComponent<Collider>());
         }
 
         private void BuildFanVillage(Transform parent, Shader urpLit)
@@ -479,7 +479,7 @@ namespace F1Racing.Track
             box.transform.localPosition = pos;
             box.transform.localScale = scale;
             box.GetComponent<Renderer>().sharedMaterial = mat;
-            if (!keepCollider) DestroyImmediateSafe(box.GetComponent<Collider>());
+            if (!keepCollider) F1TrackGenerator.DestroyImmediateSafe(box.GetComponent<Collider>());
             return box;
         }
 
@@ -491,7 +491,7 @@ namespace F1Racing.Track
             cyl.transform.localPosition = pos;
             cyl.transform.localScale = scale;
             cyl.GetComponent<Renderer>().sharedMaterial = mat;
-            DestroyImmediateSafe(cyl.GetComponent<Collider>());
+            F1TrackGenerator.DestroyImmediateSafe(cyl.GetComponent<Collider>());
             return cyl;
         }
 
@@ -509,17 +509,11 @@ namespace F1Racing.Track
             if (_jumbotronRT != null)
             {
                 _jumbotronRT.Release();
-                DestroyImmediateSafe(_jumbotronRT);
+                F1TrackGenerator.DestroyImmediateSafe(_jumbotronRT);
             }
             for (int i = transform.childCount - 1; i >= 0; i--)
-                DestroyImmediateSafe(transform.GetChild(i).gameObject);
+                F1TrackGenerator.DestroyImmediateSafe(transform.GetChild(i).gameObject);
         }
 
-        private static void DestroyImmediateSafe(Object obj)
-        {
-            if (obj == null) return;
-            if (Application.isPlaying) Destroy(obj);
-            else DestroyImmediate(obj);
-        }
     }
 }

@@ -1,4 +1,3 @@
-using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 
@@ -37,9 +36,9 @@ namespace F1Racing.Track
 
         private CatmullRomSpline _spline;
         private readonly List<Vector3> _waypoints = new List<Vector3>();
-        private readonly List<Renderer> _startLightRenderers = new List<Renderer>();
-        private Material _startLightOnMat;
-        private Material _startLightOffMat;
+
+        /// <summary>Spline distance (m) of the start/finish line; the grid sits just behind it.</summary>
+        public const float StartLineDistance = 140f;
 
         public IReadOnlyList<Vector3> Waypoints => _waypoints;
         public CatmullRomSpline Spline => _spline;
@@ -53,14 +52,6 @@ namespace F1Racing.Track
             else if (Application.isPlaying)
             {
                 RebuildSplineOnly();
-            }
-        }
-
-        private void Start()
-        {
-            if (Application.isPlaying && _startLightRenderers.Count > 0)
-            {
-                StartCoroutine(RunF1StartLightsSequence());
             }
         }
 
@@ -140,7 +131,6 @@ namespace F1Racing.Track
 
         private void ClearChildren()
         {
-            _startLightRenderers.Clear();
             for (int i = transform.childCount - 1; i >= 0; i--)
             {
                 Transform child = transform.GetChild(i);
@@ -508,7 +498,7 @@ namespace F1Racing.Track
 
         private void CreateStartFinishGantry(Shader urpLit)
         {
-            var startSample = _spline.GetSampleAtDistance(140f);
+            var startSample = _spline.GetSampleAtDistance(StartLineDistance);
             GameObject gantryRoot = new GameObject("StartFinish_Gantry");
             gantryRoot.transform.SetParent(transform, false);
             gantryRoot.transform.position = startSample.Position;
@@ -540,14 +530,11 @@ namespace F1Racing.Track
             checkMat.SetTexture("_BaseMap", GenerateCheckerTexture());
             finishLine.GetComponent<Renderer>().sharedMaterial = checkMat;
 
-            // 5 F1 Starting Lights
-            _startLightOnMat = new Material(urpLit) { name = "StartLight_On" };
-            _startLightOnMat.SetColor("_BaseColor", Color.red);
-            _startLightOnMat.EnableKeyword("_EMISSION");
-            _startLightOnMat.SetColor("_EmissionColor", Color.red * 4f);
-
-            _startLightOffMat = new Material(urpLit) { name = "StartLight_Off" };
-            _startLightOffMat.SetColor("_BaseColor", new Color(0.12f, 0.02f, 0.02f));
+            // 5 F1 Starting Lights (the countdown itself is run by TrackFlagController)
+            Material startLightOnMat = new Material(urpLit) { name = "StartLight_On" };
+            startLightOnMat.SetColor("_BaseColor", Color.red);
+            startLightOnMat.EnableKeyword("_EMISSION");
+            startLightOnMat.SetColor("_EmissionColor", Color.red * 4f);
 
             for (int i = 0; i < 5; i++)
             {
@@ -559,9 +546,7 @@ namespace F1Racing.Track
                 pod.transform.localScale = Vector3.one * 0.55f;
                 DestroyImmediateSafe(pod.GetComponent<Collider>());
 
-                Renderer r = pod.GetComponent<Renderer>();
-                r.sharedMaterial = _startLightOnMat;
-                _startLightRenderers.Add(r);
+                pod.GetComponent<Renderer>().sharedMaterial = startLightOnMat;
             }
         }
 
@@ -625,26 +610,6 @@ namespace F1Racing.Track
             box.GetComponent<Renderer>().sharedMaterial = mat;
         }
 
-        private IEnumerator RunF1StartLightsSequence()
-        {
-            foreach (var r in _startLightRenderers)
-                r.sharedMaterial = _startLightOffMat;
-
-            yield return new WaitForSeconds(0.6f);
-
-            for (int i = 0; i < _startLightRenderers.Count; i++)
-            {
-                _startLightRenderers[i].sharedMaterial = _startLightOnMat;
-                yield return new WaitForSeconds(0.55f);
-            }
-
-            yield return new WaitForSeconds(0.9f);
-
-            // Lights out and away we go!
-            foreach (var r in _startLightRenderers)
-                r.sharedMaterial = _startLightOffMat;
-        }
-
         /// <summary>
         /// Computes staggered F1 starting grid positions just behind the Start/Finish line.
         /// </summary>
@@ -652,7 +617,7 @@ namespace F1Racing.Track
         {
             if (_spline == null) RebuildSplineOnly();
 
-            float startLineDist = 140f;
+            float startLineDist = StartLineDistance;
             float rowBackOffset = 10f + slotIndex * 6f;
             float lateralOffset = (slotIndex % 2 == 0) ? -3.2f : 3.2f;
 
@@ -661,7 +626,7 @@ namespace F1Racing.Track
             rotation = Quaternion.LookRotation(sample.Tangent, Vector3.up);
         }
 
-        private static void DestroyImmediateSafe(Object obj)
+        internal static void DestroyImmediateSafe(Object obj)
         {
             if (obj == null) return;
             if (Application.isPlaying)

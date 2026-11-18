@@ -412,7 +412,7 @@ namespace F1Racing.Track
             box.transform.localPosition = localPos;
             box.transform.localScale = scale;
             box.GetComponent<Renderer>().sharedMaterial = mat;
-            if (!keepCollider) DestroyImmediateSafe(box.GetComponent<Collider>());
+            if (!keepCollider) F1TrackGenerator.DestroyImmediateSafe(box.GetComponent<Collider>());
             return box;
         }
 
@@ -424,7 +424,7 @@ namespace F1Racing.Track
             cyl.transform.localPosition = localPos;
             cyl.transform.localScale = scale;
             cyl.GetComponent<Renderer>().sharedMaterial = mat;
-            DestroyImmediateSafe(cyl.GetComponent<Collider>());
+            F1TrackGenerator.DestroyImmediateSafe(cyl.GetComponent<Collider>());
             return cyl;
         }
 
@@ -459,14 +459,8 @@ namespace F1Racing.Track
         private void ClearChildren()
         {
             for (int i = transform.childCount - 1; i >= 0; i--)
-                DestroyImmediateSafe(transform.GetChild(i).gameObject);
+                F1TrackGenerator.DestroyImmediateSafe(transform.GetChild(i).gameObject);
         }
 
-        private static void DestroyImmediateSafe(Object obj)
-        {
-            if (obj == null) return;
-            if (Application.isPlaying) Destroy(obj);
-            else DestroyImmediate(obj);
-        }
     }
 }

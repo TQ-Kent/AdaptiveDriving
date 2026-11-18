@@ -69061,7 +69061,6 @@ GameObject:
   serializedVersion: 6
   m_Component:
   - component: {fileID: 709282152}
-  - component: {fileID: 709282151}
   - component: {fileID: 709282150}
   m_Layer: 0
   m_Name: Track_Environment_Props
@@ -69100,30 +69099,6 @@ MonoBehaviour:
   redFlagMat: {fileID: 2100000, guid: 0bb8125640720744aa3fdf50da74e0fa, type: 2}
   startLightOnMat: {fileID: 2100000, guid: a52c1b05dc04ab5448ea3999b5bfef82, type: 2}
   startLightOffMat: {fileID: 2100000, guid: fb47027e2729efd4ca17955ef7376e00, type: 2}
---- !u!114 &709282151
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 709282149}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 0f3ab89ee7685614db9b41fb27d85dd0, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
-  trackGenerator: {fileID: 1855637648}
-  customWaypointTransforms: []
-  trackWidth: 16
-  runOffWidth: 9.5
-  barrierOffsetFromEdge: 2.8
-  catchFenceHeight: 2.4
-  sharpCornerCurvatureThreshold: 0.011
-  marshalPostIntervalMeters: 250
-  treeCount: 160
-  minTreeClearanceFromTrack: 22
-  forestSpreadRadius: 260
-  randomSeed: 42
 --- !u!4 &709282152
 Transform:
   m_ObjectHideFlags: 0
