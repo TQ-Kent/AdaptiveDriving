@@ -44,7 +44,7 @@ namespace F1Racing.Track
             ClearChildren();
 
             if (trackGenerator == null)
-                trackGenerator = FindFirstObjectByType<F1TrackGenerator>();
+                trackGenerator = FindAnyObjectByType<F1TrackGenerator>();
             if (trackGenerator != null && trackGenerator.Spline == null)
                 trackGenerator.RebuildSplineOnly();
 
@@ -89,7 +89,7 @@ namespace F1Racing.Track
 
             JumbotronBroadcastCamera broadcast = camObj.AddComponent<JumbotronBroadcastCamera>();
             broadcast.refreshRateFps = jumbotronRefreshFps;
-            F1CarController car1 = FindFirstObjectByType<F1CarController>();
+            F1CarController car1 = FindAnyObjectByType<F1CarController>();
             if (car1 != null) broadcast.targetCar = car1.transform;
         }
 

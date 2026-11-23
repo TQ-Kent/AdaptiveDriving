@@ -24,7 +24,7 @@ namespace F1Racing.Track
             _cam = GetComponent<Camera>();
             if (targetCar == null)
             {
-                F1CarController car = FindFirstObjectByType<F1CarController>();
+                F1CarController car = FindAnyObjectByType<F1CarController>();
                 if (car != null) targetCar = car.transform;
             }
 
