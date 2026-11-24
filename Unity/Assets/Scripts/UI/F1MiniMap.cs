@@ -58,7 +58,6 @@ namespace F1Racing.UI
             _panel.Apply();
 
             if (track == null) return;
-            if (track.Spline == null) track.RebuildSplineOnly();
             IReadOnlyList<Vector3> pts = track.Waypoints;
             if (pts == null || pts.Count < 2) return;
 

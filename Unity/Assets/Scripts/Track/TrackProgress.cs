@@ -25,7 +25,6 @@ namespace F1Racing.Track
         private void Update()
         {
             if (track == null) return;
-            if (track.Spline == null) track.RebuildSplineOnly();
             CatmullRomSpline spline = track.Spline;
             if (spline == null || spline.TotalLength <= 0f) return;
 

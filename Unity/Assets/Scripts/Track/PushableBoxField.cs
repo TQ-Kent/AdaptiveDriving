@@ -246,7 +246,6 @@ namespace F1Racing.Track
         private CatmullRomSpline GetSpline()
         {
             if (track == null) return null;
-            if (track.Spline == null) track.RebuildSplineOnly();
             CatmullRomSpline spline = track.Spline;
             return spline != null && spline.TotalLength > 0f ? spline : null;
         }

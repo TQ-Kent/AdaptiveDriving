@@ -395,7 +395,6 @@ namespace F1Racing.Vehicle
         public void ResetToTrack()
         {
             if (trackReference == null) return;
-            if (trackReference.Spline == null) trackReference.RebuildSplineOnly();
             CatmullRomSpline spline = trackReference.Spline;
             if (spline == null || spline.Samples.Count == 0) return;
 
