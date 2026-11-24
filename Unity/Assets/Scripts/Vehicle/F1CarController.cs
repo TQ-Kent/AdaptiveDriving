@@ -78,7 +78,9 @@ namespace F1Racing.Vehicle
         [Tooltip("Usable lateral grip in g before downforce; sets the speed-sensitive steering limit.")]
         public float lateralGripG = 1.6f;
         [Tooltip("Extra steer angle allowed on top of the geometric angle (front tyre peak slip).")]
-        public float peakSlipDeg = 5f;
+        public float peakSlipDeg = 4f;
+        [Tooltip("Share of downforce on the rear axle. Above 0.5 keeps the rear planted at speed (less high-speed oversteer).")]
+        [Range(0.3f, 0.8f)] public float aeroRearBias = 0.6f;
         [Tooltip("Yaw stability: damps rotation beyond what the steering asks for. 0 = off.")]
         [Range(0f, 1f)] public float stabilityControl = 1f;
         [Tooltip("Cuts drive torque while the rear wheels spin. 0 = off.")]
@@ -211,8 +213,13 @@ namespace F1Racing.Vehicle
         private void ApplyDownforce()
         {
             float speed = _rb.linearVelocity.magnitude;
+            // Split downforce between the axles (rear-biased) instead of pushing at the centre of mass.
             float downforce = downforceCoefficient * speed * speed;
-            _rb.AddForce(-transform.up * downforce, ForceMode.Force);
+            Vector3 down = -transform.up * downforce;
+            Vector3 front = AxleCentre(frontLeftCollider, frontRightCollider);
+            Vector3 rear = AxleCentre(rearLeftCollider, rearRightCollider);
+            _rb.AddForceAtPosition(down * (1f - aeroRearBias), front, ForceMode.Force);
+            _rb.AddForceAtPosition(down * aeroRearBias, rear, ForceMode.Force);
 
             IsDrsActive = _command.Drs && CurrentSpeedKmh >= drsMinSpeedKmh && _command.Throttle > 0.1f;
             _rb.linearDamping = IsDrsActive ? drsLinearDamping : baseLinearDamping;
@@ -249,13 +256,14 @@ namespace F1Racing.Vehicle
             float targetYaw = TargetYawRate(forwardSpeed, _currentSteerAngle, _wheelbase);
             float actualYaw = transform.InverseTransformDirection(_rb.angularVelocity).y;
 
-            const float allowedExcess = 0.15f; // rad/s of free over-rotation
+            // Free over-rotation (rad/s): playful at low speed, tight at high speed where a slide is hard to catch.
+            float allowedExcess = Mathf.Lerp(0.15f, 0.04f, Mathf.Clamp01(CurrentSpeedKmh / topSpeedKmh));
             float excess = Mathf.Sign(actualYaw) == Mathf.Sign(targetYaw) || Mathf.Abs(targetYaw) < 0.01f
                 ? Mathf.Abs(actualYaw) - Mathf.Abs(targetYaw) - allowedExcess
                 : Mathf.Abs(actualYaw) - allowedExcess; // rotating against the steering = spinning
             if (excess <= 0f) return;
 
-            float correction = Mathf.Min(excess * 8f, 6f) * stabilityControl; // rad/s^2, capped
+            float correction = Mathf.Min(excess * 12f, 10f) * stabilityControl; // rad/s^2, capped
             _rb.AddRelativeTorque(Vector3.up * (-Mathf.Sign(actualYaw) * correction), ForceMode.Acceleration);
         }
 
@@ -479,15 +487,16 @@ namespace F1Racing.Vehicle
                 stiffness = 1.6f
             };
 
-            // Rear ~10% grippier than front (was ~40%, which caused heavy understeer);
-            // gentle drop after the peak so a slide builds progressively instead of snapping.
+            // Rear ~20% grippier than front: stable at speed without the old ~40% push-wide understeer.
+            // Gentle drop after the peak so a slide builds progressively instead of snapping.
+            // (WheelColliders ignore the road's PhysicsMaterial; "track grip" is set here.)
             wc.sidewaysFriction = new WheelFrictionCurve
             {
                 extremumSlip = 0.35f,
-                extremumValue = isFront ? 2.0f : 2.1f,
+                extremumValue = isFront ? 2.0f : 2.2f,
                 asymptoteSlip = 0.8f,
-                asymptoteValue = isFront ? 1.7f : 1.8f,
-                stiffness = isFront ? 1.8f : 1.9f
+                asymptoteValue = isFront ? 1.75f : 1.95f,
+                stiffness = isFront ? 1.9f : 2.1f
             };
         }
 
@@ -520,6 +529,9 @@ namespace F1Racing.Vehicle
             wc != null && wc.GetGroundHit(out WheelHit h)
                 ? Mathf.Max(Mathf.Abs(h.sidewaysSlip) / 0.35f, Mathf.Abs(h.forwardSlip) / 0.45f)
                 : 0f;
+
+        private Vector3 AxleCentre(WheelCollider l, WheelCollider r) =>
+            l != null && r != null ? (l.transform.position + r.transform.position) * 0.5f : _rb.worldCenterOfMass;
 
         private static float ForwardSlip(WheelCollider wc) =>
             wc != null && wc.GetGroundHit(out WheelHit h) ? h.forwardSlip : 0f;
