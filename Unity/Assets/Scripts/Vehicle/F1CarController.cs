@@ -453,9 +453,18 @@ namespace F1Racing.Vehicle
             if (spline == null || spline.Samples.Count == 0) return;
 
             var sample = spline.Samples[spline.FindNearestSampleIndex(transform.position)];
+            Vector3 pos = sample.Position + Vector3.up * 0.8f;
+            Quaternion rot = Quaternion.LookRotation(sample.Tangent, Vector3.up);
+
+            // Move the Rigidbody itself: with interpolation on, setting only the transform gets
+            // overwritten by the body's old pose on the next physics step (the car snapped back).
             _rb.linearVelocity = Vector3.zero;
             _rb.angularVelocity = Vector3.zero;
-            transform.SetPositionAndRotation(sample.Position + Vector3.up * 0.8f, Quaternion.LookRotation(sample.Tangent, Vector3.up));
+            _rb.position = pos;
+            _rb.rotation = rot;
+            transform.SetPositionAndRotation(pos, rot);
+
+            _currentSteerAngle = _keySteer = _keyThrottle = 0f;
         }
 
         /// <summary>
