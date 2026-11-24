@@ -164,6 +164,9 @@ namespace F1Racing.Track
 
         // ---------- shared assets ----------
 
+        /// <summary>Soft transparent puff material, shared with the cars' tyre smoke.</summary>
+        public static Material SmokeMaterial { get { EnsureAssets(); return _smokeMat; } }
+
         private static void EnsureAssets()
         {
             if (_fireMat != null && _smokeMat != null && _boom != null) return;

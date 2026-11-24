@@ -195,14 +195,7 @@ namespace F1Racing.Vehicle
                 skidObj.transform.SetParent(wcObj.transform, false);
                 skidObj.transform.localPosition = new Vector3(0f, -0.33f, 0f);
                 TrailRenderer trail = skidObj.AddComponent<TrailRenderer>();
-                trail.time = 6f;
-                trail.startWidth = 0.34f;
-                trail.endWidth = 0.34f;
-                trail.emitting = false;
-                Shader unlit = Shader.Find("Universal Render Pipeline/Unlit") ?? Shader.Find("Unlit/Color");
-                Material skidMat = new Material(unlit) { name = "Skid_Mat" };
-                skidMat.color = new Color(0.05f, 0.05f, 0.05f, 0.85f);
-                trail.sharedMaterial = skidMat;
+                F1CarController.ConfigureSkidTrail(trail);
                 skidList.Add(trail);
 
                 // Tire Smoke ParticleSystem
@@ -210,15 +203,7 @@ namespace F1Racing.Vehicle
                 smokeObj.transform.SetParent(wcObj.transform, false);
                 smokeObj.transform.localPosition = new Vector3(0f, -0.30f, -0.2f);
                 ParticleSystem ps = smokeObj.AddComponent<ParticleSystem>();
-                var main = ps.main;
-                main.playOnAwake = false;
-                main.startLifetime = 0.75f;
-                main.startSpeed = 2.5f;
-                main.startSize = 0.55f;
-                main.startColor = new Color(0.85f, 0.85f, 0.85f, 0.45f);
-                main.simulationSpace = ParticleSystemSimulationSpace.World;
-                var emission = ps.emission;
-                emission.rateOverTime = 28f;
+                F1CarController.ConfigureTireSmoke(ps);
                 smokeList.Add(ps);
             }
         }
