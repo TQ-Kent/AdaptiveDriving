@@ -1,4 +1,3 @@
-using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 
@@ -13,7 +12,7 @@ namespace F1Racing.Track
 
     /// <summary>
     /// Controls all trackside LED marshal flag panels (Green/Yellow/Red)
-    /// and runs the Start/Finish gantry 5-red-light countdown sequence.
+    /// and the Start/Finish gantry lights; RaceManager drives both.
     /// </summary>
     public class TrackFlagController : MonoBehaviour
     {
@@ -36,19 +35,7 @@ namespace F1Racing.Track
         private void Start()
         {
             SetFlagState(currentFlag);
-
-            if (startLightPodRenderers.Count > 0)
-            {
-                StartCoroutine(RunStartCountdownCoroutine());
-            }
-        }
-
-        private void Update()
-        {
-            // Quick keyboard shortcuts to test trackside LED flag states at runtime
-            if (Input.GetKeyDown(KeyCode.Alpha1)) SetFlagState(TrackFlagState.Green);
-            if (Input.GetKeyDown(KeyCode.Alpha2)) SetFlagState(TrackFlagState.Yellow);
-            if (Input.GetKeyDown(KeyCode.Alpha3)) SetFlagState(TrackFlagState.Red);
+            SetStartLights(0);
         }
 
         [ContextMenu("Set Green Flag")]
@@ -80,37 +67,13 @@ namespace F1Racing.Track
             }
         }
 
-        /// <summary>
-        /// F1 starting lights sequence: 3..2..1.. Lights Out.
-        /// </summary>
-        public IEnumerator RunStartCountdownCoroutine()
+        /// <summary>Lights the first <paramref name="lit"/> gantry pods (0 = lights out). Driven by RaceManager's countdown.</summary>
+        public void SetStartLights(int lit)
         {
-            if (startLightOffMat == null || startLightOnMat == null) yield break;
-
-            foreach (var pod in startLightPodRenderers)
-            {
-                if (pod != null) pod.sharedMaterial = startLightOffMat;
-            }
-
-            yield return new WaitForSeconds(1.0f);
-
-            // Light up 5 red pods sequentially (3..2..1..)
+            if (startLightOffMat == null || startLightOnMat == null) return;
             for (int i = 0; i < startLightPodRenderers.Count; i++)
-            {
                 if (startLightPodRenderers[i] != null)
-                    startLightPodRenderers[i].sharedMaterial = startLightOnMat;
-                yield return new WaitForSeconds(0.6f);
-            }
-
-            // Hold before Lights Out
-            yield return new WaitForSeconds(1.0f);
-
-            foreach (var pod in startLightPodRenderers)
-            {
-                if (pod != null) pod.sharedMaterial = startLightOffMat;
-            }
-
-            SetFlagState(TrackFlagState.Green);
+                    startLightPodRenderers[i].sharedMaterial = i < lit ? startLightOnMat : startLightOffMat;
         }
     }
 }

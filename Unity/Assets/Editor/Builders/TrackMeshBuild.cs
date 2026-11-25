@@ -6,8 +6,9 @@ using TrackPhysicsMaterial = UnityEngine.PhysicsMaterial;
 namespace F1Racing.EditorTools
 {
     /// <summary>
-    /// Editor-only: builds the track meshes (asphalt, shoulders, kerbs, barriers, gantry, grandstands)
-    /// under an <see cref="F1TrackGenerator"/>. Output is baked into the scene.
+    /// Editor-only: builds the track meshes (asphalt, kerb bands, asphalt run-off, apex kerbs, barriers, gantry,
+    /// grandstands) under an <see cref="F1TrackGenerator"/>. Output is baked into the scene. On the inside of tight
+    /// corners the run-off and barrier are pulled in to <see cref="BuildUtil.SideOffsetLimit"/> so they never fold.
     /// </summary>
     internal class TrackMeshBuild
     {
@@ -45,7 +46,7 @@ namespace F1Racing.EditorTools
 
             CreateGroundPlane(urpLit);
             CreateAsphaltMesh(urpLit, asphaltPhysMat);
-            CreateShoulderStrips(urpLit, asphaltPhysMat);
+            CreateKerbBandsAndRunOff(urpLit, asphaltPhysMat);
             CreateApexKerbs(urpLit);
             CreateSafetyBarriers(urpLit);
             CreateStartFinishGantry(urpLit);
@@ -55,11 +56,13 @@ namespace F1Racing.EditorTools
 
         private void CreateGroundPlane(Shader urpLit)
         {
+            // Covers the track plus the scenery ring (SceneryBuild places it up to ~200 m outside the track bounds).
+            Rect b = BuildUtil.TrackBounds(g);
             GameObject ground = GameObject.CreatePrimitive(PrimitiveType.Plane);
             ground.name = "InfieldGround";
             ground.transform.SetParent(transform, false);
-            ground.transform.position = new Vector3(160f, -0.35f, 20f);
-            ground.transform.localScale = new Vector3(120f, 1f, 120f);
+            ground.transform.position = new Vector3(b.center.x, -0.35f, b.center.y);
+            ground.transform.localScale = new Vector3((b.width + 600f) / 10f, 1f, (b.height + 600f) / 10f); // a Plane is 10 m
 
             Material grassMat = new Material(urpLit) { name = "F1_Grass_Mat" };
             grassMat.SetColor("_BaseColor", new Color(0.14f, 0.28f, 0.12f));
@@ -168,28 +171,43 @@ namespace F1Racing.EditorTools
             return tex;
         }
 
-        private void CreateShoulderStrips(Shader urpLit, TrackPhysicsMaterial physMat)
+        /// <summary>Red/white kerb band along both edges, then grey asphalt run-off out to just past the barrier.</summary>
+        private void CreateKerbBandsAndRunOff(Shader urpLit, TrackPhysicsMaterial physMat)
+        {
+            float halfWidth = trackWidth * 0.5f;
+            Material kerbMat = new Material(urpLit) { name = "F1_KerbBand_Mat" };
+            kerbMat.SetTexture("_BaseMap", GenerateKerbTexture());
+            kerbMat.SetFloat("_Smoothness", 0.3f);
+            CreateSideBands("Track_Kerb_Bands", halfWidth - 0.05f, halfWidth + kerbWidth, 4.5f, kerbMat, physMat);
+
+            Material runOffMat = new Material(urpLit) { name = "F1_RunOff_Mat" };
+            runOffMat.SetColor("_BaseColor", new Color(0.30f, 0.31f, 0.33f)); // lighter than the track, so the white line reads
+            runOffMat.SetFloat("_Smoothness", 0.15f);
+            CreateSideBands("Track_RunOff", halfWidth + kerbWidth - 0.02f, halfWidth + barrierOffset + 0.8f, 20f, runOffMat, physMat);
+        }
+
+        /// <summary>One mesh with a band on each side between two centre-line offsets, both clamped to the fold limit.</summary>
+        private void CreateSideBands(string objName, float innerOffset, float outerOffset, float uvMetres, Material mat, TrackPhysicsMaterial physMat)
         {
             var samples = _spline.Samples;
             int n = samples.Count;
-            float halfWidth = trackWidth * 0.5f;
-            float innerOffset = halfWidth - 0.05f;
-            float outerOffset = halfWidth + barrierOffset + 0.8f;
-
             var verts = new List<Vector3>(n * 4);
             var uvs = new List<Vector2>(n * 4);
             var tris = new List<int>(n * 12);
 
             for (int side = -1; side <= 1; side += 2)
             {
+                float[] limit = BuildUtil.SideOffsetLimit(_spline, side);
                 int sideBase = verts.Count;
                 for (int i = 0; i < n; i++)
                 {
                     var s = samples[i];
-                    verts.Add(s.Position + s.Right * (side * innerOffset) - Vector3.up * 0.015f);
-                    verts.Add(s.Position + s.Right * (side * outerOffset) - Vector3.up * 0.015f);
+                    float outer = Mathf.Min(outerOffset, limit[i]);
+                    float inner = Mathf.Min(innerOffset, outer);
+                    verts.Add(s.Position + s.Right * (side * inner) - Vector3.up * 0.015f);
+                    verts.Add(s.Position + s.Right * (side * outer) - Vector3.up * 0.015f);
 
-                    float vCoord = s.Distance / 4.5f;
+                    float vCoord = s.Distance / uvMetres;
                     uvs.Add(new Vector2(0f, vCoord));
                     uvs.Add(new Vector2(1f, vCoord));
                 }
@@ -215,28 +233,24 @@ namespace F1Racing.EditorTools
                 }
             }
 
-            Mesh shoulderMesh = new Mesh
+            Mesh mesh = new Mesh
             {
-                name = "F1_ShoulderStrips_Mesh",
+                name = objName + "_Mesh",
                 indexFormat = UnityEngine.Rendering.IndexFormat.UInt32
             };
-            shoulderMesh.SetVertices(verts);
-            shoulderMesh.SetUVs(0, uvs);
-            shoulderMesh.SetTriangles(tris, 0);
-            shoulderMesh.RecalculateNormals();
-            shoulderMesh.RecalculateBounds();
+            mesh.SetVertices(verts);
+            mesh.SetUVs(0, uvs);
+            mesh.SetTriangles(tris, 0);
+            mesh.RecalculateNormals();
+            mesh.RecalculateBounds();
 
-            GameObject shoulderObj = new GameObject("Track_Shoulder_Stripes");
-            shoulderObj.transform.SetParent(transform, false);
-            shoulderObj.AddComponent<MeshFilter>().sharedMesh = shoulderMesh;
+            GameObject obj = new GameObject(objName);
+            obj.transform.SetParent(transform, false);
+            obj.AddComponent<MeshFilter>().sharedMesh = mesh;
+            obj.AddComponent<MeshRenderer>().sharedMaterial = mat;
 
-            Material shoulderMat = new Material(urpLit) { name = "F1_Shoulder_Mat" };
-            shoulderMat.SetTexture("_BaseMap", GenerateKerbTexture());
-            shoulderMat.SetFloat("_Smoothness", 0.3f);
-            shoulderObj.AddComponent<MeshRenderer>().sharedMaterial = shoulderMat;
-
-            MeshCollider mc = shoulderObj.AddComponent<MeshCollider>();
-            mc.sharedMesh = shoulderMesh;
+            MeshCollider mc = obj.AddComponent<MeshCollider>();
+            mc.sharedMesh = mesh;
             mc.sharedMaterial = physMat;
         }
 
@@ -343,8 +357,8 @@ namespace F1Racing.EditorTools
         {
             var samples = _spline.Samples;
             int n = samples.Count;
-            float innerOffset = trackWidth * 0.5f + barrierOffset;
-            float outerOffset = innerOffset + barrierThickness;
+            float wanted = trackWidth * 0.5f + barrierOffset;
+            float[] limit = BuildUtil.SideOffsetLimit(_spline, sideSign);
 
             var verts = new List<Vector3>();
             var tris = new List<int>();
@@ -353,14 +367,17 @@ namespace F1Racing.EditorTools
             {
                 var s0 = samples[i];
                 var s1 = samples[(i + 1) % n];
+                // Inside a tight corner the barrier comes in (less run-off there) rather than crossing itself.
+                float in0 = Mathf.Min(wanted, limit[i] - barrierThickness), in1 = Mathf.Min(wanted, limit[(i + 1) % n] - barrierThickness);
+                float out0 = in0 + barrierThickness, out1 = in1 + barrierThickness;
 
-                Vector3 b0In = s0.Position + s0.Right * (sideSign * innerOffset);
-                Vector3 b0Out = s0.Position + s0.Right * (sideSign * outerOffset);
+                Vector3 b0In = s0.Position + s0.Right * (sideSign * in0);
+                Vector3 b0Out = s0.Position + s0.Right * (sideSign * out0);
                 Vector3 t0In = b0In + Vector3.up * barrierHeight;
                 Vector3 t0Out = b0Out + Vector3.up * barrierHeight;
 
-                Vector3 b1In = s1.Position + s1.Right * (sideSign * innerOffset);
-                Vector3 b1Out = s1.Position + s1.Right * (sideSign * outerOffset);
+                Vector3 b1In = s1.Position + s1.Right * (sideSign * in1);
+                Vector3 b1Out = s1.Position + s1.Right * (sideSign * out1);
                 Vector3 t1In = b1In + Vector3.up * barrierHeight;
                 Vector3 t1Out = b1Out + Vector3.up * barrierHeight;
 
@@ -420,7 +437,7 @@ namespace F1Racing.EditorTools
             pillarMat.SetColor("_BaseColor", new Color(0.18f, 0.19f, 0.22f));
             pillarMat.SetFloat("_Metallic", 0.7f);
 
-            float span = trackWidth + barrierOffset * 2f;
+            float span = trackWidth + kerbWidth * 2f + 3f; // over the racing surface; the run-off stays open
             float gantryHeight = 6.2f;
 
             // Left & Right Pillars
@@ -489,15 +506,17 @@ namespace F1Racing.EditorTools
             Material roofMat = new Material(urpLit) { name = "Grandstand_Roof_Mat" };
             roofMat.SetColor("_BaseColor", new Color(0.85f, 0.15f, 0.15f));
 
-            float[] standDistances = { 90f, 180f, 680f };
-            float[] standSides = { -1f, 1f, 1f };
+            // Small stands outside Roggia (T4), Lesmo (T6) and Ascari (T8); the covered ones come from SceneryBuild.
+            float[] standDistances = { 1050f, 1240f, 1840f };
+            float[] standSides = { 1f, -1f, 1f };
 
             for (int s = 0; s < standDistances.Length; s++)
             {
-                var sample = _spline.GetSampleAtDistance(standDistances[s]);
                 GameObject stand = new GameObject($"Grandstand_{s + 1}");
                 stand.transform.SetParent(transform, false);
-                stand.transform.position = sample.Position + sample.Right * (standSides[s] * (trackWidth * 0.5f + 12f));
+                // Tiers step away from the track along local -x/+x, so face along the track and offset sideways.
+                var sample = _spline.GetSampleAtDistance(standDistances[s]);
+                stand.transform.position = BuildUtil.Trackside(g, standDistances[s], standSides[s], 4f, out _);
                 stand.transform.rotation = Quaternion.LookRotation(sample.Tangent, Vector3.up);
 
                 // 4 terraced seating tiers

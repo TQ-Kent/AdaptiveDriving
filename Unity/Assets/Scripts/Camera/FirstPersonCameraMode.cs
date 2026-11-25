@@ -66,9 +66,15 @@ namespace F1Racing.CameraSystem
 
         private void Update()
         {
-            if (!Input.GetKeyDown(toggleKey)) return;
-            active = !active;
+            if (Input.GetKeyDown(toggleKey)) SetActive(!active);
+        }
+
+        public void SetActive(bool on)
+        {
+            if (active == on) return;
+            active = on;
             _cam.nearClipPlane = active ? nearClip : _defaultNear;
+            if (_chase != null) _chase.OnFirstPersonChanged(active);
         }
 
         private void LateUpdate()

@@ -53,23 +53,38 @@ namespace F1Racing.Vehicle
         public float minEnginePitch = 0.7f;
         public float maxEnginePitch = 2.35f;
 
-        [Header("Powertrain & Speed")]
-        public float motorTorque = 3300f;
-        public float drsMotorBoostMultiplier = 1.18f;
+        // Provisional F1-like spec (real-car figures, unvalidated in this game): 800 kg with driver, ~750 kW hybrid
+        // power unit, Monza low-drag trim. Top speed is not a cap: it comes out where power meets aero drag.
+        [Header("Chassis & Power Unit (shared spec)")]
+        public float massKg = 800f;
+        public Vector3 centreOfMass = new Vector3(0f, -0.45f, -0.18f);
+        public float angularDampingValue = 2.2f;
+        public float enginePowerKw = 750f;
+        [Tooltip("Drive force cap at a standstill (g); downforce adds traction on top as speed rises.")]
+        public float launchTractionG = 1.2f;
         public float brakeTorque = 5400f;
         public float handbrakeTorque = 6500f;
-        public float topSpeedKmh = 325f;
-        public float drsTopSpeedKmh = 355f;
         public float reverseTopSpeedKmh = 75f;
+        public float rollingResistance = 0.015f;
 
-        [Header("Steering & Downforce")]
+        [Header("Aerodynamics")]
+        [Tooltip("Drag area Cd*A (m^2). ~1.4 gives ~345 km/h at 750 kW.")]
+        public float dragAreaCdA = 1.4f;
+        [Tooltip("Lift area Cl*A (m^2). 4.8 gives ~2.3x the car's weight in downforce at 290 km/h.")]
+        public float liftAreaClA = 4.8f;
+        [Tooltip("Share of drag removed while DRS is open.")]
+        [Range(0f, 0.5f)] public float drsDragReduction = 0.1f;
+        public float drsMinSpeedKmh = 120f;
+
+        [Header("Steering")]
         public float maxSteerAngleLowSpeed = 24f;
         public float maxSteerAngleHighSpeed = 3.8f;
         public float steerSpeed = 7.5f;
-        public float downforceCoefficient = 4.5f;
-        public float baseLinearDamping = 0.04f;
-        public float drsLinearDamping = 0.015f;
-        public float drsMinSpeedKmh = 120f;
+
+        [Header("Suspension")]
+        [Tooltip("Anti-roll bar stiffness (N per unit of left/right travel difference).")]
+        public float antiRollFront = 10000f;
+        public float antiRollRear = 8000f;
 
         // Provisional starting values, tune in play. Assists are part of the shared car spec (same for human and AI).
         [Header("Driver Assists")]
@@ -85,6 +100,8 @@ namespace F1Racing.Vehicle
         [Range(0f, 1f)] public float stabilityControl = 1f;
         [Tooltip("Cuts drive torque while the rear wheels spin. 0 = off.")]
         [Range(0f, 1f)] public float tractionControl = 0.7f;
+        [Tooltip("ABS: releases brake torque on a wheel that starts to lock. 0 = off.")]
+        [Range(0f, 1f)] public float absAssist = 1f;
 
         [Header("Keyboard Input Shaping (player only)")]
         public float steerInRateLowSpeed = 3f;   // steer units per second
@@ -97,6 +114,16 @@ namespace F1Racing.Vehicle
 
         [Tooltip("When true, keyboard input is ignored and Command is written by another driver (e.g. AI).")]
         public bool ExternalControl;
+
+        /// <summary>Race rules (RaceManager): DRS may open only while this is true. Free driving leaves it on.</summary>
+        public bool DrsAllowed { get; set; } = true;
+
+        public const float AirDensity = 1.225f;
+        /// <summary>Downforce per speed squared (N per (m/s)^2): 0.5 * rho * ClA. Used by the steering limit and the AI corner model.</summary>
+        public float downforceCoefficient => 0.5f * AirDensity * liftAreaClA;
+        /// <summary>Speed (m/s) where full power equals drag plus rolling resistance (open DRS lowers drag).</summary>
+        public float TopSpeedMs(bool drsOpen) => PowerLimitedTopSpeed(enginePowerKw * 1000f,
+            0.5f * AirDensity * dragAreaCdA * (drsOpen ? 1f - drsDragReduction : 1f), rollingResistance * massKg * 9.81f);
 
         /// <summary>Driver intent applied every physics tick; set this from an AI driver when ExternalControl is on.</summary>
         public VehicleCommand Command
@@ -111,6 +138,9 @@ namespace F1Racing.Vehicle
         public float CurrentRpm { get; private set; } = 4000f;
         public bool IsDrsActive { get; private set; }
         public bool IsBraking { get; private set; }
+        /// <summary>Steer angle (deg) that Command.Steer = 1 maps to right now (speed-sensitive).</summary>
+        public float CurrentMaxSteerDeg { get; private set; }
+        public float Wheelbase => _wheelbase;
 
         private Rigidbody _rb;
         private VehicleCommand _command;
@@ -130,9 +160,10 @@ namespace F1Racing.Vehicle
         private void Awake()
         {
             _rb = GetComponent<Rigidbody>();
-            _rb.mass = 920f; // Planted race weight + aero ballast (kg)
-            _rb.centerOfMass = new Vector3(0f, -0.45f, -0.18f);
-            _rb.angularDamping = 2.2f;
+            _rb.mass = massKg;
+            _rb.centerOfMass = centreOfMass;
+            _rb.angularDamping = angularDampingValue;
+            _rb.linearDamping = 0f; // aero drag and rolling resistance are explicit forces
             _rb.interpolation = RigidbodyInterpolation.Interpolate;
             _rb.collisionDetectionMode = CollisionDetectionMode.ContinuousDynamic;
 
@@ -177,7 +208,9 @@ namespace F1Racing.Vehicle
         {
             CurrentSpeedKmh = _rb.linearVelocity.magnitude * 3.6f;
 
-            ApplyDownforce();
+            ApplyAero();
+            ApplyAntiRoll(frontLeftCollider, frontRightCollider, antiRollFront);
+            ApplyAntiRoll(rearLeftCollider, rearRightCollider, antiRollRear);
             ApplySteering();
             ApplyDriveAndBraking();
             ApplyStabilityControl();
@@ -192,7 +225,7 @@ namespace F1Racing.Vehicle
             float throttleKey = Input.GetKey(p1 ? KeyCode.W : KeyCode.UpArrow) ? 1f : 0f;
 
             // Digital keys -> smooth analog-like input; AI commands bypass this.
-            float speedFactor = Mathf.Clamp01(CurrentSpeedKmh / topSpeedKmh);
+            float speedFactor = Mathf.Clamp01(CurrentSpeedKmh / (TopSpeedMs(false) * 3.6f));
             float steerInRate = Mathf.Lerp(steerInRateLowSpeed, steerInRateHighSpeed, speedFactor);
             _keySteer = ShapeSteerInput(_keySteer, steerKeys, steerInRate, steerReturnRate, Time.deltaTime);
             _keyThrottle = throttleKey > _keyThrottle
@@ -210,29 +243,45 @@ namespace F1Racing.Vehicle
             if (Input.GetKeyDown(p1 ? KeyCode.R : KeyCode.Backspace)) ResetToTrack();
         }
 
-        private void ApplyDownforce()
+        private void ApplyAero()
         {
-            float speed = _rb.linearVelocity.magnitude;
+            Vector3 v = _rb.linearVelocity;
+            float speed = v.magnitude;
+            // DRS: only when the rules allow it, at speed, on throttle and off the brakes (braking closes the flap).
+            IsDrsActive = DrsAllowed && _command.Drs && CurrentSpeedKmh >= drsMinSpeedKmh && _command.Throttle > 0.1f && _command.Brake < 0.05f;
+
             // Split downforce between the axles (rear-biased) instead of pushing at the centre of mass.
-            float downforce = downforceCoefficient * speed * speed;
-            Vector3 down = -transform.up * downforce;
+            Vector3 down = -transform.up * (downforceCoefficient * speed * speed);
             Vector3 front = AxleCentre(frontLeftCollider, frontRightCollider);
             Vector3 rear = AxleCentre(rearLeftCollider, rearRightCollider);
             _rb.AddForceAtPosition(down * (1f - aeroRearBias), front, ForceMode.Force);
             _rb.AddForceAtPosition(down * aeroRearBias, rear, ForceMode.Force);
 
-            IsDrsActive = _command.Drs && CurrentSpeedKmh >= drsMinSpeedKmh && _command.Throttle > 0.1f;
-            _rb.linearDamping = IsDrsActive ? drsLinearDamping : baseLinearDamping;
+            if (speed > 0.1f)
+            {
+                float drag = 0.5f * AirDensity * dragAreaCdA * (IsDrsActive ? 1f - drsDragReduction : 1f) * speed * speed;
+                float rolling = AnyWheelGrounded() ? rollingResistance * _rb.mass * Physics.gravity.magnitude : 0f;
+                _rb.AddForce(-v / speed * (drag + rolling), ForceMode.Force);
+            }
+        }
+
+        /// <summary>Anti-roll bar: pushes down the more compressed side and lifts the other (standard WheelCollider recipe).</summary>
+        private void ApplyAntiRoll(WheelCollider left, WheelCollider right, float stiffness)
+        {
+            if (left == null || right == null || stiffness <= 0f) return;
+            bool gl = left.GetGroundHit(out WheelHit hl), gr = right.GetGroundHit(out WheelHit hr);
+            float travelL = gl ? (-left.transform.InverseTransformPoint(hl.point).y - left.radius) / left.suspensionDistance : 1f;
+            float travelR = gr ? (-right.transform.InverseTransformPoint(hr.point).y - right.radius) / right.suspensionDistance : 1f;
+            float force = (travelL - travelR) * stiffness;
+            if (gl) _rb.AddForceAtPosition(left.transform.up * -force, left.transform.position);
+            if (gr) _rb.AddForceAtPosition(right.transform.up * force, right.transform.position);
         }
 
         private void ApplySteering()
         {
             // Speed-sensitive lock: at speed, only as much angle as the front tyres can turn into grip.
-            float speed = _rb.linearVelocity.magnitude;
-            float latAccel = lateralGripG * Physics.gravity.magnitude
-                           * (1f + downforceCoefficient * speed * speed / (_rb.mass * Physics.gravity.magnitude));
-            float gripLimit = GripSteerLimitDeg(speed, _wheelbase, latAccel, peakSlipDeg, maxSteerAngleHighSpeed, maxSteerAngleLowSpeed);
-            float maxAngle = Mathf.Lerp(maxSteerAngleLowSpeed, gripLimit, steerAssist);
+            float maxAngle = MaxSteerDegAt(_rb.linearVelocity.magnitude);
+            CurrentMaxSteerDeg = maxAngle;
 
             // Steering rack slew.
             float t = 1f - Mathf.Exp(-steerSpeed * Time.fixedDeltaTime);
@@ -257,7 +306,7 @@ namespace F1Racing.Vehicle
             float actualYaw = transform.InverseTransformDirection(_rb.angularVelocity).y;
 
             // Free over-rotation (rad/s): playful at low speed, tight at high speed where a slide is hard to catch.
-            float allowedExcess = Mathf.Lerp(0.15f, 0.04f, Mathf.Clamp01(CurrentSpeedKmh / topSpeedKmh));
+            float allowedExcess = Mathf.Lerp(0.15f, 0.04f, Mathf.Clamp01(CurrentSpeedKmh / (TopSpeedMs(false) * 3.6f)));
             float excess = Mathf.Sign(actualYaw) == Mathf.Sign(targetYaw) || Mathf.Abs(targetYaw) < 0.01f
                 ? Mathf.Abs(actualYaw) - Mathf.Abs(targetYaw) - allowedExcess
                 : Mathf.Abs(actualYaw) - allowedExcess; // rotating against the steering = spinning
@@ -270,7 +319,6 @@ namespace F1Racing.Vehicle
         private void ApplyDriveAndBraking()
         {
             float forwardSpeed = Vector3.Dot(_rb.linearVelocity, transform.forward);
-            float effectiveTopSpeed = IsDrsActive ? drsTopSpeedKmh : topSpeedKmh;
 
             bool handbrake = _command.Handbrake;
             bool wantsReverse = _command.Brake > 0.05f && forwardSpeed < 2f;
@@ -288,10 +336,13 @@ namespace F1Racing.Vehicle
             {
                 appliedBrake = brakeTorque * _command.Brake;
             }
-            else if (_command.Throttle > 0.05f && CurrentSpeedKmh < effectiveTopSpeed)
+            else if (_command.Throttle > 0.05f)
             {
-                float torqueBoost = IsDrsActive ? drsMotorBoostMultiplier : 1f;
-                appliedMotor = _command.Throttle * motorTorque * torqueBoost;
+                // Power-limited drive: force = P/v, capped by traction (launch grip plus downforce on the rear axle).
+                float g = Physics.gravity.magnitude;
+                float traction = launchTractionG * _rb.mass * g + aeroRearBias * downforceCoefficient * forwardSpeed * forwardSpeed;
+                float force = DriveForce(_command.Throttle * enginePowerKw * 1000f, forwardSpeed, traction);
+                appliedMotor = force * WheelRadius() * 0.5f; // per driven wheel
 
                 // Traction control: back off torque while the driven wheels spin up.
                 float spin = Mathf.Max(ForwardSlip(rearLeftCollider), ForwardSlip(rearRightCollider));
@@ -300,19 +351,32 @@ namespace F1Racing.Vehicle
             }
             else if (wantsReverse && CurrentSpeedKmh < reverseTopSpeedKmh)
             {
-                appliedMotor = -_command.Brake * motorTorque * 0.55f;
+                appliedMotor = -_command.Brake * launchTractionG * _rb.mass * Physics.gravity.magnitude * WheelRadius() * 0.25f;
             }
 
             // Rear-wheel drive (F1 spec)
             if (rearLeftCollider != null) rearLeftCollider.motorTorque = appliedMotor;
             if (rearRightCollider != null) rearRightCollider.motorTorque = appliedMotor;
 
-            // Front-biased braking
-            if (frontLeftCollider != null) frontLeftCollider.brakeTorque = appliedBrake * 1.15f;
-            if (frontRightCollider != null) frontRightCollider.brakeTorque = appliedBrake * 1.15f;
-            if (rearLeftCollider != null) rearLeftCollider.brakeTorque = handbrake ? handbrakeTorque : appliedBrake * 0.85f;
-            if (rearRightCollider != null) rearRightCollider.brakeTorque = handbrake ? handbrakeTorque : appliedBrake * 0.85f;
+            // Front-biased braking; ABS eases a wheel that starts to lock (not the handbrake).
+            SetBrake(frontLeftCollider, appliedBrake * 1.15f, !handbrake);
+            SetBrake(frontRightCollider, appliedBrake * 1.15f, !handbrake);
+            SetBrake(rearLeftCollider, handbrake ? handbrakeTorque : appliedBrake * 0.85f, !handbrake);
+            SetBrake(rearRightCollider, handbrake ? handbrakeTorque : appliedBrake * 0.85f, !handbrake);
         }
+
+        private void SetBrake(WheelCollider wc, float torque, bool abs)
+        {
+            if (wc == null) return;
+            if (abs && absAssist > 0f && torque > 0f) torque *= 1f - absAssist * AbsRelease(ForwardSlip(wc));
+            wc.brakeTorque = torque;
+        }
+
+        private float WheelRadius() => rearLeftCollider != null ? rearLeftCollider.radius : 0.36f;
+
+        private bool AnyWheelGrounded() =>
+            (frontLeftCollider != null && frontLeftCollider.isGrounded) || (frontRightCollider != null && frontRightCollider.isGrounded) ||
+            (rearLeftCollider != null && rearLeftCollider.isGrounded) || (rearRightCollider != null && rearRightCollider.isGrounded);
 
         private void UpdateGearAndRpm()
         {
@@ -523,12 +587,46 @@ namespace F1Racing.Vehicle
         /// Largest useful steer angle (deg) at <paramref name="speed"/> m/s: the kinematic angle for a turn
         /// at <paramref name="latAccel"/> m/s^2 plus the tyre's peak slip, clamped to [minDeg, maxDeg].
         /// </summary>
+        /// <summary>Steering lock (deg) this car allows at <paramref name="speed"/> m/s; the same limit for player and AI.</summary>
+        public float MaxSteerDegAt(float speed)
+        {
+            float latAccel = lateralGripG * Physics.gravity.magnitude
+                           * (1f + downforceCoefficient * speed * speed / (_rb.mass * Physics.gravity.magnitude));
+            float gripLimit = GripSteerLimitDeg(speed, _wheelbase, latAccel, peakSlipDeg, maxSteerAngleHighSpeed, maxSteerAngleLowSpeed);
+            return Mathf.Lerp(maxSteerAngleLowSpeed, gripLimit, steerAssist);
+        }
+
         public static float GripSteerLimitDeg(float speed, float wheelbase, float latAccel, float peakSlipDeg, float minDeg, float maxDeg)
         {
             if (speed < 1f) return maxDeg;
             float geometric = Mathf.Atan(wheelbase * latAccel / (speed * speed)) * Mathf.Rad2Deg;
             return Mathf.Clamp(geometric + peakSlipDeg, minDeg, maxDeg);
         }
+
+        /// <summary>Drive force (N) for <paramref name="powerW"/> at <paramref name="speed"/> m/s: P/v, never above the traction limit.</summary>
+        public static float DriveForce(float powerW, float speed, float tractionN) =>
+            Mathf.Max(0f, Mathf.Min(tractionN, powerW / Mathf.Max(1f, speed)));
+
+        /// <summary>Speed (m/s) where P = dragK*v^3 + rollingN*v, by bisection (the right side grows with v).</summary>
+        public static float PowerLimitedTopSpeed(float powerW, float dragK, float rollingN)
+        {
+            float lo = 0f, hi = 200f;
+            for (int i = 0; i < 40; i++)
+            {
+                float mid = 0.5f * (lo + hi);
+                if (dragK * mid * mid * mid + rollingN * mid > powerW) hi = mid; else lo = mid;
+            }
+            return lo;
+        }
+
+        /// <summary>ABS release share 0..1 for a wheel's forward slip: none above -0.25 (friction peak ~0.4), full at -0.6.</summary>
+        public static float AbsRelease(float forwardSlip) => forwardSlip >= 0f ? 0f : Mathf.Clamp01((-forwardSlip - 0.25f) / 0.35f);
+
+        /// <summary>The physical spec as text; equal strings mean the cars are physically identical (fairness check).</summary>
+        public string PhysicsSpecKey() => string.Join("|", massKg, centreOfMass, angularDampingValue, enginePowerKw, launchTractionG,
+            brakeTorque, handbrakeTorque, rollingResistance, dragAreaCdA, liftAreaClA, drsDragReduction, drsMinSpeedKmh,
+            maxSteerAngleLowSpeed, maxSteerAngleHighSpeed, steerSpeed, antiRollFront, antiRollRear, steerAssist, lateralGripG,
+            peakSlipDeg, aeroRearBias, stabilityControl, tractionControl, absAssist);
 
         /// <summary>Yaw rate (rad/s) a car following its steered wheels would have.</summary>
         public static float TargetYawRate(float forwardSpeed, float steerDeg, float wheelbase) =>

@@ -33,10 +33,22 @@ namespace F1Racing.EditorTools
             if (p.autoAlignToMainStraight)
             {
                 float side = p.placeOnRightSideOfStraight ? 1f : -1f;
-                transform.position = new Vector3(side * p.lateralOffsetFromTrackCenter, 0f, p.longitudinalOffsetZ);
-                transform.rotation = p.placeOnRightSideOfStraight
-                    ? Quaternion.identity
-                    : Quaternion.Euler(0f, 180f, 0f);
+                var track = Object.FindAnyObjectByType<F1TrackGenerator>();
+                if (track != null)
+                {
+                    // Anchored to the start line, just outside the barrier (the run-off stays open in front of the pit wall).
+                    var s = track.Spline.GetSampleAtDistance(F1TrackGenerator.StartLineDistance);
+                    float lateral = track.trackWidth * 0.5f + track.barrierOffset + track.barrierThickness + p.lateralOffsetFromTrackCenter;
+                    Vector3 pos = s.Position + s.Right * (side * lateral) + s.Tangent * p.longitudinalOffsetZ;
+                    transform.position = new Vector3(pos.x, 0f, pos.z);
+                    transform.rotation = Quaternion.LookRotation(new Vector3(s.Tangent.x, 0f, s.Tangent.z), Vector3.up)
+                                         * (p.placeOnRightSideOfStraight ? Quaternion.identity : Quaternion.Euler(0f, 180f, 0f));
+                }
+                else
+                {
+                    transform.position = new Vector3(side * p.lateralOffsetFromTrackCenter, 0f, p.longitudinalOffsetZ);
+                    transform.rotation = p.placeOnRightSideOfStraight ? Quaternion.identity : Quaternion.Euler(0f, 180f, 0f);
+                }
             }
 
             Shader urpLit = Shader.Find("Universal Render Pipeline/Lit") ?? Shader.Find("Standard");

@@ -17,6 +17,8 @@ namespace F1Racing.Track
         /// <summary>p = nL + s.</summary>
         public float TotalProgress => Laps * LapLength + LapDistance;
         public float LapLength => track != null && track.Spline != null ? track.Spline.TotalLength : 0f;
+        /// <summary>Race distance in metres: like <see cref="TotalProgress"/>, but a car still behind the line is negative.</summary>
+        public float RaceProgress => LapCounter.RaceProgress(Laps, LapDistance, LapLength, _counter.PassedHalfway);
 
         public event Action<TrackProgress> LapCompleted;
 
@@ -47,6 +49,12 @@ namespace F1Racing.Track
     {
         private float _last;
         private bool _hasLast, _passedHalfway;
+
+        public bool PassedHalfway => _passedHalfway;
+
+        /// <summary>Before its first halfway point a car in the last part of the lap is behind the line, not a lap ahead.</summary>
+        public static float RaceProgress(int laps, float lapDistance, float lapLength, bool passedHalfway) =>
+            laps * lapLength + lapDistance - (!passedHalfway && lapDistance > lapLength * 0.6f ? lapLength : 0f);
 
         public bool Step(float lapDistance, float lapLength)
         {

@@ -10,8 +10,11 @@ namespace F1Racing.Track
     {
         [Header("Layout & Alignment")]
         public bool autoAlignToMainStraight = true;
-        public bool placeOnRightSideOfStraight = true;
-        public float lateralOffsetFromTrackCenter = 11.2f;
+        [Tooltip("Off by default: the infield between the main and back straights is too narrow for the paddock.")]
+        public bool placeOnRightSideOfStraight = false;
+        [Tooltip("Gap (m) between the outside of the track barrier and the pit wall (with a track in the scene).")]
+        public float lateralOffsetFromTrackCenter = 1f;
+        [Tooltip("Along the main straight from the start line (m); negative = before it.")]
         public float longitudinalOffsetZ = -45f;
 
         [Header("Customizable Dimensions")]

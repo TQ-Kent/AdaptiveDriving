@@ -48,21 +48,25 @@ namespace F1Racing.UI
         {
             InitStyles();
 
-            if (car1 != null)
+            if (car1 != null && car1.isActiveAndEnabled)
                 DrawCarTelemetry(new Rect(16, 16, 250, 95), car1, "P1 (WASD + L-Shift DRS)");
+            else if (mainChaseCamera != null && mainChaseCamera.ActiveTarget != null) // AI-only race
+                DrawCarTelemetry(new Rect(16, 16, 250, 95), mainChaseCamera.ActiveTarget, "watching (C = next car)");
 
-            if (car2 != null)
+            if (car2 != null && !GameModeManager.AIOpponents) // with AI on, car 2 is an AI opponent
             {
                 DrawCarTelemetry(new Rect(Screen.width - 266, 16, 250, 95), car2, "P2 (Arrows + R-Shift DRS)");
             }
 
             string camText = (mainChaseCamera != null && mainChaseCamera.IsSplitScreen)
                 ? "Split-Screen ON (V)"
-                : $"Cam: {(mainChaseCamera != null && mainChaseCamera.ActiveTarget != null ? mainChaseCamera.ActiveTarget.carName : "Car 1")} (C = Switch, V = Split)";
+                : $"Cam: {(mainChaseCamera != null && mainChaseCamera.ActiveTarget != null ? mainChaseCamera.ActiveTarget.carName : "Car 1")} (C = next car, V = split)";
+            string fun = GameModeManager.FunMode ? "  |  M model  F front cam  B boxes" : "";
 
-            GUI.Box(new Rect(Screen.width * 0.5f - 230, Screen.height - 42, 460, 28), "", _panelStyle);
-            GUI.Label(new Rect(Screen.width * 0.5f - 220, Screen.height - 38, 440, 22),
-                $"{camText}  |  P: First person  |  R: Reset P1", _labelStyle);
+            float w = GameModeManager.FunMode ? 700f : 480f;
+            GUI.Box(new Rect(Screen.width * 0.5f - w * 0.5f, Screen.height - 42, w, 28), "", _panelStyle);
+            GUI.Label(new Rect(Screen.width * 0.5f - w * 0.5f + 10f, Screen.height - 38, w - 20f, 22),
+                $"{camText}  |  P: First person  |  R: Reset  |  N: Map{fun}", _labelStyle);
         }
 
         private void DrawCarTelemetry(Rect rect, F1CarController car, string subtitle)
@@ -72,7 +76,7 @@ namespace F1Racing.UI
             GUI.Label(new Rect(rect.x + 10, rect.y + 28, 130, 32), $"{Mathf.RoundToInt(car.CurrentSpeedKmh)} km/h", _bigSpeedStyle);
             GUI.Label(new Rect(rect.x + 145, rect.y + 34, 95, 24), $"G{car.CurrentGear} | {(int)car.CurrentRpm}", _labelStyle);
 
-            string drsStatus = car.IsDrsActive ? "DRS OPEN" : (car.IsBraking ? "BRAKE" : "DRS READY");
+            string drsStatus = car.IsDrsActive ? "DRS OPEN" : car.IsBraking ? "BRAKE" : car.DrsAllowed ? "DRS READY" : "DRS --";
             GUI.Label(new Rect(rect.x + 10, rect.y + 64, 220, 22), drsStatus, _labelStyle);
         }
     }

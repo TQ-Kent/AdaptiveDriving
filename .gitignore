@@ -45,6 +45,7 @@ venv/
 /Python/data/
 /Python/runs/
 /Python/checkpoints/
+/Python/calibration/*.csv
 *.telemetry
 *.jsonl
 

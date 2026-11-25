@@ -95,31 +95,23 @@ namespace F1Racing.EditorTools
             Material seatRedMat = CreateMat("Scenery_SeatRed_Mat", urpLit, new Color(0.82f, 0.12f, 0.12f), 0.3f, 0f);
             Material seatBlueMat = CreateMat("Scenery_SeatBlue_Mat", urpLit, new Color(0.12f, 0.34f, 0.82f), 0.3f, 0f);
 
-            // Main Grandstand opposite Pit Complex (-X side of main straight), plus 2 corner grandstands
-            Vector3[] standPositions =
-            {
-                new Vector3(-24f, 0f, 15f),
-                new Vector3(115f, 7.5f, 325f),
-                new Vector3(382f, 8.5f, 10f)
-            };
-            float[] standYaw = { 90f, 180f, -90f };
+            // Placed along the spline so they follow the layout: main grandstand opposite the pits (pits on the left),
+            // then the outside of the Rettifilo (T1) braking zone and of the Parabolica (T11). Jumbotrons sit nearby.
+            float start = F1TrackGenerator.StartLineDistance;
+            float[] standDistances = { start + 10f, 500f, 2370f };
+            float[] standSides = { 1f, -1f, -1f };
             float[] standLengths = { 56f, 40f, 40f };
+            float[] tvDistances = { start + 150f, 440f, 2300f };
+            float[] tvSides = { -1f, -1f, -1f };
 
-            // Matching Jumbotrons placed across the track from each grandstand
-            Vector3[] tvPositions =
+            for (int i = 0; i < standDistances.Length; i++)
             {
-                new Vector3(11.5f, 0f, 15f),
-                new Vector3(115f, 8.0f, 272f),
-                new Vector3(332f, 9.0f, 10f)
-            };
-            float[] tvYaw = { -90f, 0f, 90f };
-
-            for (int i = 0; i < standPositions.Length; i++)
-            {
-                BuildCoveredGrandstand(parent, $"Covered_Grandstand_{i + 1}", standPositions[i], standYaw[i],
+                Vector3 standPos = BuildUtil.Trackside(trackGenerator, standDistances[i], standSides[i], 6f, out Quaternion standRot);
+                BuildCoveredGrandstand(parent, $"Covered_Grandstand_{i + 1}", standPos, standRot.eulerAngles.y,
                     standLengths[i], concreteMat, steelMat, roofMat, (i % 2 == 0) ? seatRedMat : seatBlueMat);
 
-                BuildJumbotron(parent, $"Jumbotron_TV_{i + 1}", tvPositions[i], tvYaw[i], steelMat);
+                Vector3 tvPos = BuildUtil.Trackside(trackGenerator, tvDistances[i], tvSides[i], 3f, out Quaternion tvRot);
+                BuildJumbotron(parent, $"Jumbotron_TV_{i + 1}", tvPos, tvRot.eulerAngles.y, steelMat);
             }
         }
 
@@ -195,7 +187,8 @@ namespace F1Racing.EditorTools
 
         private void BuildFanVillage(Transform parent, Shader urpLit)
         {
-            Vector3 plazaCenter = new Vector3(-58f, 0f, 15f);
+            // In the open ground east of the back straight (outside the circuit, clear of the Serraglio diagonal).
+            Vector3 plazaCenter = BuildUtil.Trackside(trackGenerator, 2120f, -1f, 170f, out _);
             Material plazaMat = CreateMat("FanVillage_Plaza_Mat", urpLit, new Color(0.26f, 0.27f, 0.29f), 0.2f, 0f);
             Material whiteMat = CreateMat("FanVillage_White_Mat", urpLit, new Color(0.94f, 0.94f, 0.94f), 0.35f, 0f);
             Material steelMat = CreateMat("FanVillage_Steel_Mat", urpLit, new Color(0.22f, 0.24f, 0.26f), 0.4f, 0.7f);
@@ -308,12 +301,13 @@ namespace F1Racing.EditorTools
             Material yellowMat = CreateMat("Parkland_Yellow_Mat", urpLit, new Color(0.95f, 0.80f, 0.08f), 0.3f, 0f);
 
             System.Random rng = new System.Random(randomSeed);
+            Rect b = BuildUtil.TrackBounds(trackGenerator);
 
             // Grassy Hills around outer perimeter
             for (int i = 0; i < parklandHillCount; i++)
             {
                 float angle = i * (Mathf.PI * 2f / parklandHillCount);
-                Vector3 pos = new Vector3(160f + Mathf.Cos(angle) * 290f, -2.5f, 20f + Mathf.Sin(angle) * 290f);
+                Vector3 pos = Ring(b, angle, 150f, -2.5f);
                 GameObject hill = GameObject.CreatePrimitive(PrimitiveType.Sphere);
                 hill.name = $"Grassy_Hill_{i + 1}";
                 hill.transform.SetParent(parent, false);
@@ -326,8 +320,7 @@ namespace F1Racing.EditorTools
             for (int i = 0; i < parklandTreeCount; i++)
             {
                 float angle = (float)(rng.NextDouble() * Mathf.PI * 2.0);
-                float dist = 210f + (float)(rng.NextDouble() * 110f);
-                Vector3 pos = new Vector3(160f + Mathf.Cos(angle) * dist, -0.35f, 20f + Mathf.Sin(angle) * dist);
+                Vector3 pos = Ring(b, angle, 70f + (float)(rng.NextDouble() * 110f), -0.35f);
 
                 GameObject tree = new GameObject($"Parkland_Pine_{i + 1}");
                 tree.transform.SetParent(parent, false);
@@ -348,15 +341,20 @@ namespace F1Racing.EditorTools
             // Helipad near Pit Complex / Paddock
             GameObject pad = new GameObject("Circuit_Helipad");
             pad.transform.SetParent(parent, false);
-            pad.transform.position = new Vector3(92f, 0.02f, -35f);
+            pad.transform.position = BuildUtil.Trackside(trackGenerator, 2040f, -1f, 110f, out _) + Vector3.up * 0.02f;
             CreateCylinder(pad.transform, "Concrete_Pad", Vector3.zero, new Vector3(16f, 0.12f, 16f), helipadMat);
             CreateBox(pad.transform, "H_Left", new Vector3(-2.0f, 0.15f, 0f), new Vector3(0.8f, 0.04f, 6.0f), yellowMat, false);
             CreateBox(pad.transform, "H_Right", new Vector3(2.0f, 0.15f, 0f), new Vector3(0.8f, 0.04f, 6.0f), yellowMat, false);
             CreateBox(pad.transform, "H_Cross", new Vector3(0f, 0.15f, 0f), new Vector3(4.0f, 0.04f, 0.8f), yellowMat, false);
         }
 
+        /// <summary>Point on an ellipse <paramref name="margin"/> metres outside the track bounds, at <paramref name="angle"/> radians.</summary>
+        private static Vector3 Ring(Rect b, float angle, float margin, float y) =>
+            new Vector3(b.center.x + Mathf.Cos(angle) * (b.width * 0.5f + margin), y, b.center.y + Mathf.Sin(angle) * (b.height * 0.5f + margin));
+
         private void BuildTwilightMarinaTheme(Transform parent, Shader urpLit)
         {
+            Rect b = BuildUtil.TrackBounds(trackGenerator);
             Material steelMat = CreateMat("Marina_Steel_Mat", urpLit, new Color(0.22f, 0.24f, 0.28f), 0.4f, 0.7f);
             Material waterMat = CreateMat("Marina_Water_Mat", urpLit, new Color(0.04f, 0.16f, 0.28f), 0.92f, 0.2f);
             Material yachtWhiteMat = CreateMat("Marina_YachtWhite_Mat", urpLit, new Color(0.95f, 0.95f, 0.96f), 0.6f, 0.1f);
@@ -381,8 +379,10 @@ namespace F1Racing.EditorTools
                     var s = trackGenerator.Spline.GetSampleAtDistance(i * step);
                     GameObject tower = new GameObject($"Floodlight_Tower_{i + 1}");
                     tower.transform.SetParent(parent, false);
-                    tower.transform.position = s.Position - s.Right * 15f;
-                    tower.transform.rotation = Quaternion.LookRotation(s.Right, Vector3.up);
+                    float outside = s.SignedCurvature > 0f ? -1f : 1f; // outside of the bend: the inside run-off can be pulled in
+                    float off = trackGenerator.trackWidth * 0.5f + trackGenerator.barrierOffset + trackGenerator.barrierThickness + 3f;
+                    tower.transform.position = s.Position + s.Right * (outside * off);
+                    tower.transform.rotation = Quaternion.LookRotation(-outside * s.Right, Vector3.up);
 
                     CreateBox(tower.transform, "Mast", new Vector3(0f, 11f, 0f), new Vector3(0.65f, 22f, 0.65f), steelMat, true);
                     CreateBox(tower.transform, "Lamp_Head", new Vector3(0f, 22f, 0.6f), new Vector3(3.8f, 1.4f, 0.4f), floodGlowMat, false);
@@ -409,8 +409,7 @@ namespace F1Racing.EditorTools
             for (int i = 0; i < marinaPalmCount; i++)
             {
                 float angle = (float)(rng.NextDouble() * Mathf.PI * 2.0);
-                float dist = 195f + (float)(rng.NextDouble() * 85f);
-                Vector3 pos = new Vector3(160f + Mathf.Cos(angle) * dist, -0.35f, 20f + Mathf.Sin(angle) * dist);
+                Vector3 pos = Ring(b, angle, 60f + (float)(rng.NextDouble() * 85f), -0.35f);
 
                 GameObject palm = new GameObject($"Palm_Tree_{i + 1}");
                 palm.transform.SetParent(parent, false);
@@ -427,7 +426,7 @@ namespace F1Racing.EditorTools
             for (int i = 0; i < marinaSkyscraperCount; i++)
             {
                 float angle = i * (Mathf.PI * 2f / marinaSkyscraperCount);
-                Vector3 pos = new Vector3(160f + Mathf.Cos(angle) * 340f, 0f, 20f + Mathf.Sin(angle) * 340f);
+                Vector3 pos = Ring(b, angle, 200f, 0f);
                 float h = 55f + (float)rng.NextDouble() * 95f;
 
                 GameObject bldg = new GameObject($"Skyscraper_{i + 1}");
@@ -441,7 +440,7 @@ namespace F1Racing.EditorTools
             GameObject marinaWater = GameObject.CreatePrimitive(PrimitiveType.Plane);
             marinaWater.name = "Marina_Waterfront";
             marinaWater.transform.SetParent(parent, false);
-            marinaWater.transform.position = new Vector3(180f, -0.45f, -310f);
+            marinaWater.transform.position = new Vector3(b.center.x, -0.45f, b.yMin - 165f); // south of the Parabolica
             marinaWater.transform.localScale = new Vector3(45f, 1f, 22f);
             marinaWater.GetComponent<Renderer>().sharedMaterial = waterMat;
 
@@ -449,7 +448,7 @@ namespace F1Racing.EditorTools
             {
                 GameObject yacht = new GameObject($"Luxury_Yacht_{i + 1}");
                 yacht.transform.SetParent(parent, false);
-                yacht.transform.position = new Vector3(70f + i * 36f, 0.2f, -275f - (i % 2) * 18f);
+                yacht.transform.position = new Vector3(b.center.x - 110f + i * 36f, 0.2f, b.yMin - 130f - (i % 2) * 18f);
                 yacht.transform.rotation = Quaternion.Euler(0f, 20f + i * 8f, 0f);
 
                 CreateBox(yacht.transform, "Hull", new Vector3(0f, 0.6f, 0f), new Vector3(4.2f, 1.4f, 14f), yachtWhiteMat, false);

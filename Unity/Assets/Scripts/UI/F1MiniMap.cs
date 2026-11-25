@@ -74,7 +74,7 @@ namespace F1Racing.UI
 
             var px = new Color32[TexSize * TexSize];
             float pxPerMetre = TexSize / span;
-            float trackHalfWidthPx = Mathf.Max(2f, 8f * pxPerMetre);  // 16 m wide circuit
+            float trackHalfWidthPx = Mathf.Max(2f, track.trackWidth * 0.5f * pxPerMetre);
             Stroke(px, pts, trackHalfWidthPx + 2.5f, new Color32(15, 15, 18, 255));
             Stroke(px, pts, trackHalfWidthPx, new Color32(200, 205, 215, 255));
 
@@ -171,12 +171,6 @@ namespace F1Racing.UI
             GUI.DrawTexture(new Rect(x - diameter * 0.5f, y - diameter * 0.5f, diameter, diameter), _dot);
         }
 
-        private static Color CarColor(F1CarController car)
-        {
-            string n = car.carName ?? car.name;
-            if (n.Contains("Red")) return new Color(1f, 0.2f, 0.15f);
-            if (n.Contains("Blue")) return new Color(0.2f, 0.55f, 1f);
-            return Color.white;
-        }
+        private static Color CarColor(F1CarController car) => CarLivery.ColorOf(car);
     }
 }

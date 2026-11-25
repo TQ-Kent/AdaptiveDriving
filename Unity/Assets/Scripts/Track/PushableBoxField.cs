@@ -18,8 +18,8 @@ namespace F1Racing.Track
         public float stackSpacing = 110f;
         [Tooltip("Lateral offsets (m) cycled per stack; track is 16 m wide.")]
         public float[] lateralOffsets = { 0f, -3.5f, 3.5f };
-        [Tooltip("Keep this clear around the start/finish line and grid (spline distance, m).")]
-        public Vector2 keepClearDistance = new Vector2(60f, 170f);
+        [Tooltip("Keep clear this far before / after the start line (m): the grid and the line.")]
+        public Vector2 keepClearAroundStart = new Vector2(80f, 30f);
 
         [Header("Stacks")]
         public int baseRowCount = 5;    // pyramid: 5-4-3-2-1 = 15 boxes
@@ -109,7 +109,8 @@ namespace F1Racing.Track
             int s = 0;
             for (float dist = stackSpacing * 0.5f; dist < spline.TotalLength - 20f; dist += stackSpacing)
             {
-                if (dist > keepClearDistance.x && dist < keepClearDistance.y) continue;
+                float fromStart = dist - F1TrackGenerator.StartLineDistance;
+                if (fromStart > -keepClearAroundStart.x && fromStart < keepClearAroundStart.y) continue;
 
                 var sample = spline.GetSampleAtDistance(dist);
                 Vector3 fwd = sample.Tangent.normalized;
