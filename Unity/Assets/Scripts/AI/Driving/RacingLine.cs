@@ -18,18 +18,22 @@ namespace F1Racing.AI.Driving
         private const int PassesPerScale = 25;
 
         private readonly float[] _offset, _distance, _curvature;
+        private readonly Vector2[] _centre, _right;
         private readonly float _length;
+        private const int LaneSmoothPoints = 4; // +-4 points (+-20 m): the edge clamp leaves no curvature spike
 
         /// <summary>Spline distance of each line point.</summary>
         public IReadOnlyList<float> Distances => _distance;
         /// <summary>Signed curvature (1/m) of the line itself, same sign rule as the spline (positive turns right).</summary>
         public IReadOnlyList<float> Curvatures => _curvature;
 
-        private RacingLine(float[] distance, float[] offset, float[] curvature, float length)
+        private RacingLine(float[] distance, float[] offset, float[] curvature, Vector2[] centre, Vector2[] right, float length)
         {
             _distance = distance;
             _offset = offset;
             _curvature = curvature;
+            _centre = centre;
+            _right = right;
             _length = length;
         }
 
@@ -48,7 +52,34 @@ namespace F1Racing.AI.Driving
                 right[i] = new Vector2(s.Right.x, s.Right.z).normalized;
             }
             float[] offset = Optimize(centre, right, maxOffsetM);
-            return new RacingLine(distance, offset, CurvaturesOf(Points(centre, right, offset)), length);
+            return new RacingLine(distance, offset, CurvaturesOf(Points(centre, right, offset)), centre, right, length);
+        }
+
+        /// <summary>
+        /// D05 lane: the path <paramref name="laneOffsetM"/> beside the line (clamped to +-<paramref name="maxOffsetM"/>, smoothed),
+        /// as curvature per line point. <paramref name="stretch"/> = lane length / centre-line length per point (inside of a
+        /// corner &lt; 1), so a rollout can tell the inside is shorter. Lets the speed plan know a lane's real corner speed.
+        /// </summary>
+        public float[] LaneCurvatures(float laneOffsetM, float maxOffsetM, out float[] stretch)
+        {
+            int m = _offset.Length;
+            var raw = new float[m];
+            for (int i = 0; i < m; i++) raw[i] = Mathf.Clamp(_offset[i] + laneOffsetM, -maxOffsetM, maxOffsetM);
+            var lane = new float[m];
+            for (int i = 0; i < m; i++)
+            {
+                float sum = 0f;
+                for (int j = -LaneSmoothPoints; j <= LaneSmoothPoints; j++) sum += raw[Wrap(i + j, m)];
+                lane[i] = Mathf.Clamp(sum / (2 * LaneSmoothPoints + 1), -maxOffsetM, maxOffsetM);
+            }
+            Vector2[] p = Points(_centre, _right, lane);
+            stretch = new float[m];
+            for (int i = 0; i < m; i++)
+            {
+                int n = Wrap(i + 1, m);
+                stretch[i] = (p[n] - p[i]).magnitude / Mathf.Max(0.01f, (_centre[n] - _centre[i]).magnitude);
+            }
+            return CurvaturesOf(p);
         }
 
         /// <summary>Lateral offset (m, + = toward Right) of the line at <paramref name="splineDistance"/>, linearly interpolated.</summary>

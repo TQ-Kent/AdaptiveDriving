@@ -10,7 +10,7 @@ namespace F1Racing.CameraSystem
     /// and overrides its pose while active. Eye point: the character's eyes when a Fun-mode
     /// model is shown (the model is hidden from this camera only, keeping its shadow and the
     /// front-camera view), otherwise the driver's helmet in the cockpit.
-    /// Follows whichever car the chase camera is targeting (C key).
+    /// Follows whichever car the chase camera is targeting (tower click).
     /// </summary>
     [DefaultExecutionOrder(500)]
     [RequireComponent(typeof(Camera))]
@@ -66,7 +66,7 @@ namespace F1Racing.CameraSystem
 
         private void Update()
         {
-            if (Input.GetKeyDown(toggleKey)) SetActive(!active);
+            if (GameInput.Down(toggleKey)) SetActive(!active);
         }
 
         public void SetActive(bool on)

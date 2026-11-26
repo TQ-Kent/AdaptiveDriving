@@ -66,6 +66,20 @@ public static class SeamSelfCheck
         Check(bounded, "speed profile never exceeds vMax");
         Check(reachable, "speed profile never asks for more than brakeDecel");
         Check(profile.TargetAt(550f) < vMax && profile.TargetAt(100f) == vMax, "corner is slower than the straight");
+        // Friction circle (race 24): at the corner limit only the floor share of brakeDecel is left; on the straight before it, all of it.
+        // The corner limit starts at point 98 (curvature is the worst over +-2 points).
+        float vEntry = profile.Speeds[98], v97 = profile.Speeds[97], v91 = profile.Speeds[91], v90 = profile.Speeds[90];
+        Check(Mathf.Abs(v97 * v97 - (vEntry * vEntry + 2f * brakeDecel * SpeedProfile.BrakeFloorShare * 5f)) < 0.1f,
+              "braking into a corner at its grip limit uses only the floor share of brakeDecel");
+        Check(v90 < vMax && Mathf.Abs(v90 * v90 - (v91 * v91 + 2f * brakeDecel * 5f)) < 0.05f * v90 * v90,
+              "braking on the straight before the corner uses (nearly) the full brakeDecel");
+
+        var roster = new[] { new OpponentIdentity("a", 0.04f, 0.5f, Color.white), new OpponentIdentity("b", -0.03f, 0.5f, Color.white),
+                             new OpponentIdentity("c", 0.07f, 0.5f, Color.white) };
+        OpponentIdentity[] rel = PaceProfileMapper.RelativeToBest(roster, 2);
+        Check(rel.Length == 2 && rel[0].skillOffset == 0f && Mathf.Approximately(rel[1].skillOffset, -0.07f) && roster[0].skillOffset == 0.04f,
+              "pace spread: the best driver in the race sits at the session difficulty, the others below; the roster is unchanged");
+        Check(PaceProfileMapper.Effective(1f, rel[0]) == 1f && PaceProfileMapper.Effective(1f, rel[1]) < 1f, "at Expert only the best driver is at the top");
 
         var id = new OpponentIdentity("test", 0f, 0.5f, Color.white);
         PaceSettings lo = PaceProfileMapper.Map(0f, id), mid = PaceProfileMapper.Map(0.5f, id), hi = PaceProfileMapper.Map(1f, id);
@@ -94,13 +108,17 @@ public static class SeamSelfCheck
         Check(RaceStandings.LapsBehind(lapped, leaderT) == 1, "a full lap of markers behind is +1 lap");
 
         // Tactics. Slot-2 grid case: player ahead-left, AI ahead-right -> both lanes blocked, keep the current lane.
-        var tactics = new TacticalDriver();
+        var tactics = new ScriptedTacticalDriver();
         Check(tactics.Decide(0f, 6f, false, false, -1f, -1f, 0.5f) == -1f, "both lanes blocked: follow in the current lane");
-        tactics = new TacticalDriver();
+        tactics = new ScriptedTacticalDriver();
         Check(tactics.Decide(0f, 6f, false, true, -1f, 0f, 0.5f) == 1f, "preferred side blocked: take the free one");
         Check(tactics.Decide(0.5f, 6f, true, false, -1f, 1f, 0.5f) != 1f, "chosen lane closes: abort the move");
-        tactics = new TacticalDriver();
+        tactics = new ScriptedTacticalDriver();
         Check(tactics.Decide(0f, 100f, true, true, 1f, 0f, 0.5f) == 0f, "clear road: centre line");
+        tactics.Commit(1f, 10f);
+        Check(tactics.Decide(1f, 100f, true, true, 0f, 0f, 0.5f) == 1f, "a committed dive holds its side");
+        tactics.Release();
+        Check(tactics.Decide(1f, 100f, true, true, 0f, 1f, 0.5f) == 0f, "a released dive backs out to the line (v1.2 abort path)");
 
         // Recovery: stuck = no race progress (50 ticks/s).
         var recovery = new RecoveryController();
@@ -117,20 +135,59 @@ public static class SeamSelfCheck
         Check(reset, "a car making no progress in clear road (stopped or circling) is reset as stuck");
 
         CheckRacingLine();
+        CheckTactics();
         CheckSpeedCap();
         CheckCarPhysics();
         CheckRules();
         CheckTrack();
 
-        // Corner memory: 100 bins of 5 m. Learning at 300 m trims the approach (260-310 m), floors at MinTrim, leaves the rest.
+        // Corner memory: 100 bins of 5 m. Learning at 300 m lowers the approach (260-310 m), floors at MinScale, leaves the rest.
         var corners = new CornerMemory(100, 500f);
-        Check(corners.Learn(300f, 0.05f) && Mathf.Approximately(corners.Trim[60], 0.95f) && Mathf.Approximately(corners.Trim[52], 0.95f)
-              && corners.Trim[51] == 1f && corners.Trim[63] == 1f, "corner memory trims the corner and its approach only");
+        Check(corners.Learn(300f, 0.05f) && Mathf.Approximately(corners.Scale[60], 0.95f) && Mathf.Approximately(corners.Scale[52], 0.95f)
+              && corners.Scale[51] == 1f && corners.Scale[63] == 1f, "corner memory lowers the corner and its approach only");
         for (int i = 0; i < 20; i++) corners.Learn(300f, 0.05f);
-        Check(Mathf.Approximately(corners.Trim[60], CornerMemory.MinTrim) && !corners.Learn(300f, 0.05f), "corner trim stops at its floor");
-        for (int i = 0; i < 30; i++) corners.Recover(0.01f);
-        Check(corners.Trim[60] == 1f && !corners.Recover(0.01f), "trims recover lap by lap back to the plan, then stop");
+        Check(Mathf.Approximately(corners.Scale[60], CornerMemory.MinScale) && !corners.Learn(300f, 0.05f), "corner memory stops at its floor");
+        for (int i = 0; i < 50; i++) corners.Recover(0.01f);
+        Check(corners.Scale[60] == 1f && !corners.Recover(0.01f), "learning recovers lap by lap back to the plan, then stops");
         Check(PathFollower.SteerDemand(new Vector3(8f, 0f, 4f), 3f, 5f) > 1f, "a target beyond full lock reports steer demand above 1 (understeer)");
+
+        // Track-limit guard (white line at 9 m): broke in races 10, 11 and 12, so every case that went wrong is pinned here.
+        Check(!AIDriver.AtTrackLimit(4f, 5f, 8f, 75f, 9f), "following a line that sweeps across the track is not a track-limit event");
+        Check(AIDriver.AtTrackLimit(8f, 5f, 2f, 75f, 9f) && AIDriver.AtTrackLimit(-8f, -5f, -2f, 75f, 9f), "drifting out past the path near the line triggers (both sides)");
+        Check(!AIDriver.AtTrackLimit(9.5f, 5f, -2f, 30f, 9f), "steering back in from the run-off does not trigger (no throttle cut, no cap)");
+        Check(!AIDriver.AtTrackLimit(8f, 7.5f, 2f, 75f, 9f), "near the line but on its own path does not trigger");
+        Check(!AIDriver.AtTrackLimit(8f, 5f, 2f, 6f, 9f), "below 8 m/s does not trigger");
+
+        // Minimum following gap (race 17 first-chicane pile-up): lift inside it even when not closing, brake when very close.
+        var full = new VehicleCommand { Throttle = 1f };
+        Check(DrivingSafetyFilter.Apply(full, 50f, 0.2f, 0f).Throttle == 0f, "inside the minimum gap the car lifts even when not closing");
+        Check(DrivingSafetyFilter.Apply(full, 50f, 0.05f, 0f).Brake > 0.3f, "very close behind, the car brakes");
+        Check(DrivingSafetyFilter.Apply(full, 50f, 0.6f, 0f).Throttle == 1f, "a safe gap and not closing leaves the command alone");
+        var drs = new VehicleCommand { Throttle = 1f, Drs = true };
+        VehicleCommand tow = DrivingSafetyFilter.Apply(drs, 60f, 0.5f, 3f); // 30 m back closing 3 m/s: 10 s to contact
+        Check(tow.Throttle == 1f && tow.Drs, "closing slowly in the tow keeps full throttle and DRS (race 28)");
+        Check(DrivingSafetyFilter.Apply(full, 60f, 0.5f, 25f).Throttle <= 0.2f, "1.2 s to contact: the car lifts");
+        Check(DrivingSafetyFilter.Apply(full, 60f, 0.4f, 40f).Brake > 0f, "0.6 s to contact: the car brakes");
+
+        // Learned caps (race 23): a share of the corner limit, approach included, floored, lowered by a cap, raised per lap.
+        var caps = new CornerMemory(100, 500f);
+        Check(caps.CapAt(300f, 0.9f) && caps.Scale[60] == 0.9f && caps.Scale[52] == 0.9f && caps.Scale[51] == 1f,
+              "a cap covers the corner and its approach only");
+        Check(!caps.CapAt(300f, 0.95f) && caps.CapAt(300f, 0.8f) && caps.Scale[60] == 0.8f && !caps.CapAt(100f, 1.2f), "a cap only ever lowers");
+        caps.CapAt(100f, 0.1f);
+        Check(caps.Scale[20] == CornerMemory.MinScale, "a cap from a crawling car is floored");
+        caps.Recover(0.01f);
+        Check(Mathf.Approximately(caps.Scale[60], 0.81f) && caps.Scale[51] == 1f, "caps rise 1% a lap toward the plan; no cap stays none");
+        var preload = new CornerMemory(100, 500f);
+        preload.Preload(caps.Scale);
+        Check(preload.Scale[60] == caps.Scale[60] && preload.Scale[51] == 1f, "caps learned in an earlier race load into a new driver");
+        float[] med = TrackLearning.Median(new[] { (IReadOnlyList<float>)new[] { 0.7f, 1f, 0.8f }, new[] { 0.8f, 1f, 1f }, new[] { 0.6f, 0.9f, 1f } });
+        Check(med[0] == 0.7f && med[1] == 1f && med[2] == 1f, "saved caps are the per-point median over drivers");
+
+        // Best lap: deleted laps never count as best, but are shown when there is no valid lap.
+        var entry = new F1Racing.Race.RaceEntry();
+        entry.LapTimes.AddRange(new[] { 40f, 38f }); entry.LapValid.AddRange(new[] { true, false });
+        Check(entry.BestLap == 40f && entry.BestAnyLap == 38f, "best lap ignores deleted laps; best-any includes them");
 
         Debug.Log("[SeamSelfCheck] all checks passed");
     }
@@ -166,6 +223,80 @@ public static class SeamSelfCheck
     }
 
     /// <summary>A steering-lock speed cap lowers that point of the AI's own speed profile, and the braking pass reaches it.</summary>
+    /// <summary>v1.2 D04 lookahead duel cases. Pure: the forecasts are fixed numbers, no scene.</summary>
+    private static void CheckTactics()
+    {
+        float t = TacticalWorldModel.TimeTo(d => 50f, v => 0f, d => 1f, 0f, 50f, 100f, 1000f);
+        Check(Mathf.Abs(t - 2f) < 0.06f, "world model: 100 m at a steady 50 m/s takes 2 s");
+        Check(Mathf.Abs(TacticalWorldModel.TimeTo(d => 50f, v => 0f, d => 1f, 990f, 50f, 40f, 1000f) - 1f) < 0.06f, "world model wraps the start line");
+        Check(TacticalWorldModel.TimeTo(d => 50f, v => 0f, d => 0.5f, 0f, 50f, 100f, 1000f) < t - 0.5f, "a shorter lane (stretch < 1) is quicker");
+
+        var id = new OpponentIdentity("duel", 0f, 0.5f, Color.white, 0.5f, 1f, 0f); // patience 0: attacks on any predicted gain
+        TacticalContext Duel() => new TacticalContext
+        {
+            Now = 10f, SpeedMs = 60f, SplineM = 100f, LoopM = 2000f, CurrentSide = 0f, BrakeDecelMs2 = 28f, Lap = 1,
+            LeftFree = true, LineFree = false, RightFree = true, LeftClear = true, LineClear = false, RightClear = true,
+            HasAhead = true, GapAheadM = 8f, AheadSpeedMs = 55f, AheadSide = 0f, CornerSide = 1f, BrakeInM = 80f, CornerExitM = 300f,
+            SelfTime = (side, late, to) => side > 0f && late ? 3.0f : 3.5f, // down the inside, braking later, it gets to the exit first
+            AheadTime = to => 3.3f,
+            BehindTime = (side, late, to) => 9f,
+        };
+        var attacker = new LookaheadTacticalDriver(id);
+        TacticalDecision d1 = attacker.Decide(Duel());
+        Check(d1.Started && d1.Maneuver == Maneuver.AttackInside && d1.Side == 1f && d1.Late, $"faster into the corner with the inside free: attack the inside ({d1.Reason})");
+        TacticalContext held = Duel();
+        held.Now = 10.1f;
+        Check(attacker.Decide(held).Maneuver == Maneuver.AttackInside, "a committed attack is held");
+        held.RightClear = false;
+        Check(attacker.Decide(held).Maneuver == Maneuver.BackOut, "a committed attack backs out when the inside closes");
+
+        TacticalContext noRoom = Duel();
+        noRoom.RightFree = false;
+        Check(new LookaheadTacticalDriver(id).Decide(noRoom).Maneuver != Maneuver.AttackInside, "no room on the inside: no inside attack");
+        TacticalContext apex = Duel(); // race 30: at the apex no braking zone is ahead; it read as a straight
+        apex.CornerSide = 0f;
+        apex.InCorner = true;
+        Check(!new LookaheadTacticalDriver(id).Decide(apex).Started, "in a corner past its braking zone: no new maneuver");
+        TacticalContext lapOne = Duel(); // races 31-34: lap-1 pile-ups after the first chicane
+        lapOne.Calm = true;
+        Check(!new LookaheadTacticalDriver(id).Decide(lapOne).Started, "opening-lap calm zone: no new maneuver");
+        TacticalContext noAbort = Duel(); // closing 40 m/s needs 1600 / (2 * 0.8 * 28) = 36 m of the 25 m there is
+        noAbort.SpeedMs = 80f;
+        noAbort.AheadSpeedMs = 40f;
+        noAbort.GapAheadM = 30f;
+        Check(new LookaheadTacticalDriver(id).Decide(noAbort).Maneuver != Maneuver.AttackInside, "a late inside attack with no way to back out is rejected");
+        TacticalContext small = Duel();
+        small.AheadTime = to => 3.1f; // 0.1 s predicted gain
+        var patient = new LookaheadTacticalDriver(new OpponentIdentity("calm", 0f, 0.5f, Color.white, 0.5f, 0.5f, 1f));
+        Check(patient.Decide(small).Maneuver != Maneuver.AttackInside, "a patient driver needs a bigger predicted gain");
+
+        // Defence: the car 10 m behind would reach the exit first down the inside; covering it leaves it no better way.
+        TacticalContext Chased() => new TacticalContext
+        {
+            Now = 20f, SpeedMs = 60f, SplineM = 100f, LoopM = 2000f, CurrentSide = 0f, BrakeDecelMs2 = 28f, Lap = 1,
+            LeftFree = true, LineFree = true, RightFree = true, LeftClear = true, LineClear = true, RightClear = true, LineMergeFree = true,
+            HasBehind = true, GapBehindM = 10f, BehindSpeedMs = 62f, CornerSide = 1f, BrakeInM = 100f, CornerExitM = 300f,
+            SelfTime = (side, late, to) => side > 0f ? 3.1f : 3.0f,
+            AheadTime = to => 9f,
+            BehindTime = (side, late, to) => side > 0f && late ? 2.9f : 3.4f,
+        };
+        var defender = new LookaheadTacticalDriver(id);
+        TacticalDecision dd = defender.Decide(Chased());
+        Check(dd.Started && dd.Maneuver == Maneuver.DefendInside && dd.Side == 1f, $"a threatened car covers the inside ({dd.Reason})");
+        TacticalContext exit = Chased();
+        exit.Now = 22f;
+        exit.SplineM = 320f;
+        exit.CurrentSide = 1f;
+        Check(defender.Decide(exit).Ended, "the defence ends at the corner exit");
+        TacticalContext again = Chased();
+        again.Now = 23f;
+        again.SplineM = 120f;
+        Check(defender.Decide(again).Maneuver == Maneuver.HoldLine, "one defensive move per corner");
+        TacticalContext calm = Chased();
+        calm.BehindTime = (side, late, to) => 3.5f; // no threat
+        Check(new LookaheadTacticalDriver(id).Decide(calm).Maneuver == Maneuver.HoldLine, "no threat behind: no defence");
+    }
+
     private static void CheckSpeedCap()
     {
         const float length = 200f;
@@ -176,6 +307,11 @@ public static class SeamSelfCheck
         SpeedProfile capped = SpeedProfile.Build(dist, straight, length, 50f, 15f, 0.002f, 15f, null, caps);
         Check(Mathf.Approximately(capped.TargetAt(150f), 50f), "a straight plans vMax");
         Check(Mathf.Approximately(capped.TargetAt(50f), 30f) && capped.TargetAt(40f) < 50f, "a steering-lock speed cap lowers that point and is braked for");
+        var share = new float[20];
+        for (int i = 0; i < 20; i++) share[i] = i == 10 ? 0.5f : 1f;
+        SpeedProfile learned = SpeedProfile.Build(dist, straight, length, 50f, 15f, 0.002f, 15f, share, caps);
+        Check(Mathf.Approximately(learned.TargetAt(100f), 25f) && Mathf.Approximately(learned.LimitAt(100f), 50f),
+              "a learned share lowers the target, not the corner limit it is measured against");
     }
 
     /// <summary>Power-limited drive, drag top speed, ABS, and one shared physical spec for every car in the open scene.</summary>
@@ -220,6 +356,9 @@ public static class SeamSelfCheck
 
         Check(RaceRules.PointsFor(1) == 25 && RaceRules.PointsFor(10) == 1 && RaceRules.PointsFor(11) == 0 && RaceRules.PointsFor(0) == 0, "points table");
         Check(RaceRules.JumpStartM > 0f && RaceRules.JumpStartM < 1f, "jump start threshold is under a metre");
+        Check(Mathf.Approximately(RaceRules.SlipstreamFactor(0.25f, 0.5f), 0.75f) && RaceRules.SlipstreamFactor(1.2f, 0f) == 0f
+              && RaceRules.SlipstreamFactor(0.3f, 3f) == 0f && RaceRules.SlipstreamFactor(float.PositiveInfinity, 0f) == 0f,
+              "slipstream: full right behind, none beyond 1 s or 2 m to the side");
     }
 
     /// <summary>The scene's track: Monza-sized, no corner tighter than the half-width, sections far enough apart for the run-off.</summary>

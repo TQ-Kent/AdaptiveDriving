@@ -74,6 +74,8 @@ namespace F1Racing.Vehicle
         public float liftAreaClA = 4.8f;
         [Tooltip("Share of drag removed while DRS is open.")]
         [Range(0f, 0.5f)] public float drsDragReduction = 0.1f;
+        [Tooltip("Share of drag removed at full slipstream (right behind another car). Provisional.")]
+        [Range(0f, 0.5f)] public float slipstreamDragCut = 0.25f;
         public float drsMinSpeedKmh = 120f;
 
         [Header("Steering")]
@@ -117,11 +119,27 @@ namespace F1Racing.Vehicle
 
         /// <summary>Race rules (RaceManager): DRS may open only while this is true. Free driving leaves it on.</summary>
         public bool DrsAllowed { get; set; } = true;
+        /// <summary>Race rules (RaceManager): 0..1 tow from a car just ahead; the same rule for every car.</summary>
+        public float SlipstreamFactor { get; set; }
 
         public const float AirDensity = 1.225f;
         /// <summary>Downforce per speed squared (N per (m/s)^2): 0.5 * rho * ClA. Used by the steering limit and the AI corner model.</summary>
         public float downforceCoefficient => 0.5f * AirDensity * liftAreaClA;
         /// <summary>Speed (m/s) where full power equals drag plus rolling resistance (open DRS lowers drag).</summary>
+        /// <summary>
+        /// Full-throttle acceleration (m/s^2) at <paramref name="speed"/> on a straight, DRS shut, no tow: the motor's drive,
+        /// traction and drag model. A read-only planning query (AI lookahead); it changes nothing.
+        /// </summary>
+        /// <param name="dragScale">Share of drag left (DRS open, slipstream): the same factors FixedUpdate applies.</param>
+        public float FullThrottleAccelAt(float speed, float dragScale = 1f)
+        {
+            const float g = 9.81f;
+            float v = Mathf.Max(0f, speed);
+            float traction = launchTractionG * massKg * g + aeroRearBias * downforceCoefficient * v * v;
+            float resist = 0.5f * AirDensity * dragAreaCdA * dragScale * v * v + rollingResistance * massKg * g;
+            return (DriveForce(enginePowerKw * 1000f, v, traction) - resist) / massKg;
+        }
+
         public float TopSpeedMs(bool drsOpen) => PowerLimitedTopSpeed(enginePowerKw * 1000f,
             0.5f * AirDensity * dragAreaCdA * (drsOpen ? 1f - drsDragReduction : 1f), rollingResistance * massKg * 9.81f);
 
@@ -220,9 +238,9 @@ namespace F1Racing.Vehicle
         {
             if (ExternalControl) return;
             bool p1 = controlMode == ControlMode.Player1_WASD;
-            float steerKeys = (Input.GetKey(p1 ? KeyCode.D : KeyCode.RightArrow) ? 1f : 0f)
-                            - (Input.GetKey(p1 ? KeyCode.A : KeyCode.LeftArrow) ? 1f : 0f);
-            float throttleKey = Input.GetKey(p1 ? KeyCode.W : KeyCode.UpArrow) ? 1f : 0f;
+            float steerKeys = (GameInput.Held(p1 ? KeyCode.D : KeyCode.RightArrow) ? 1f : 0f)
+                            - (GameInput.Held(p1 ? KeyCode.A : KeyCode.LeftArrow) ? 1f : 0f);
+            float throttleKey = GameInput.Held(p1 ? KeyCode.W : KeyCode.UpArrow) ? 1f : 0f;
 
             // Digital keys -> smooth analog-like input; AI commands bypass this.
             float speedFactor = Mathf.Clamp01(CurrentSpeedKmh / (TopSpeedMs(false) * 3.6f));
@@ -235,12 +253,12 @@ namespace F1Racing.Vehicle
             _command = new VehicleCommand
             {
                 Throttle = _keyThrottle,
-                Brake = Input.GetKey(p1 ? KeyCode.S : KeyCode.DownArrow) ? 1f : 0f,
+                Brake = GameInput.Held(p1 ? KeyCode.S : KeyCode.DownArrow) ? 1f : 0f,
                 Steer = _keySteer,
-                Handbrake = Input.GetKey(p1 ? KeyCode.Space : KeyCode.RightControl),
-                Drs = Input.GetKey(p1 ? KeyCode.LeftShift : KeyCode.RightShift),
+                Handbrake = GameInput.Held(p1 ? KeyCode.Space : KeyCode.RightControl),
+                Drs = GameInput.Held(p1 ? KeyCode.LeftShift : KeyCode.RightShift),
             };
-            if (Input.GetKeyDown(p1 ? KeyCode.R : KeyCode.Backspace)) ResetToTrack();
+            if (GameInput.Down(p1 ? KeyCode.R : KeyCode.Backspace)) ResetToTrack();
         }
 
         private void ApplyAero()
@@ -259,7 +277,8 @@ namespace F1Racing.Vehicle
 
             if (speed > 0.1f)
             {
-                float drag = 0.5f * AirDensity * dragAreaCdA * (IsDrsActive ? 1f - drsDragReduction : 1f) * speed * speed;
+                float drag = 0.5f * AirDensity * dragAreaCdA * (IsDrsActive ? 1f - drsDragReduction : 1f)
+                           * (1f - slipstreamDragCut * Mathf.Clamp01(SlipstreamFactor)) * speed * speed;
                 float rolling = AnyWheelGrounded() ? rollingResistance * _rb.mass * Physics.gravity.magnitude : 0f;
                 _rb.AddForce(-v / speed * (drag + rolling), ForceMode.Force);
             }
@@ -624,7 +643,7 @@ namespace F1Racing.Vehicle
 
         /// <summary>The physical spec as text; equal strings mean the cars are physically identical (fairness check).</summary>
         public string PhysicsSpecKey() => string.Join("|", massKg, centreOfMass, angularDampingValue, enginePowerKw, launchTractionG,
-            brakeTorque, handbrakeTorque, rollingResistance, dragAreaCdA, liftAreaClA, drsDragReduction, drsMinSpeedKmh,
+            brakeTorque, handbrakeTorque, rollingResistance, dragAreaCdA, liftAreaClA, drsDragReduction, slipstreamDragCut, drsMinSpeedKmh,
             maxSteerAngleLowSpeed, maxSteerAngleHighSpeed, steerSpeed, antiRollFront, antiRollRear, steerAssist, lateralGripG,
             peakSlipDeg, aeroRearBias, stabilityControl, tractionControl, absAssist);
 

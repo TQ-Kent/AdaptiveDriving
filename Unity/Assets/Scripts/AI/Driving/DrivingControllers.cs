@@ -23,45 +23,65 @@ namespace F1Racing.AI.Driving
     }
 
     /// <summary>
-    /// D06 helper: corner speed trims this car learns during the race where it understeered or crashed. The trim
-    /// lowers the planned corner speed, so the braking pass moves the braking point earlier ("brake before the corner").
-    /// Driver skill only; not difficulty, not physics. Starts at 1 for every car each race.
+    /// D06 helper: per racing-line point, the share of this car's own corner limit it plans to drive (1 = the physics plan).
+    /// Lowered where it understeered, crashed or ran wide, so the braking pass moves braking earlier; raised back toward 1
+    /// every lap, so a corner is tried faster again. Saved per track (TrackLearning). A share, not m/s: a slower driver keeps
+    /// its slower plan. Race 23: absolute m/s caps made all 22 drivers equally fast in 158 of 497 points and never rose.
+    /// Driver skill only; not difficulty, not physics.
     /// </summary>
     public sealed class CornerMemory
     {
-        public const float MinTrim = 0.8f;
+        public const float MinScale = 0.6f;
         private const int ApproachBins = 8, PastBins = 2; // with 5 m bins: 40 m before to 10 m after the trouble spot
-        private readonly float[] _trim;
+        private readonly float[] _scale;
         private readonly float _length;
 
-        public IReadOnlyList<float> Trim => _trim;
+        public IReadOnlyList<float> Scale => _scale;
 
         public CornerMemory(int bins, float loopLength)
         {
-            _trim = new float[bins];
-            for (int i = 0; i < bins; i++) _trim[i] = 1f;
+            _scale = new float[bins];
+            for (int i = 0; i < bins; i++) _scale[i] = 1f;
             _length = loopLength;
         }
 
-        /// <summary>Raise every trim by <paramref name="amount"/> toward 1 (called once a lap). True if anything changed.</summary>
+        /// <summary>Raise every point by <paramref name="amount"/> toward 1 (once a lap). True if anything changed.</summary>
         public bool Recover(float amount)
         {
             bool changed = false;
-            for (int i = 0; i < _trim.Length; i++)
-                if (_trim[i] < 1f) { _trim[i] = Mathf.Min(1f, _trim[i] + amount); changed = true; }
+            for (int i = 0; i < _scale.Length; i++)
+                if (_scale[i] < 1f) { _scale[i] = Mathf.Min(1f, _scale[i] + amount); changed = true; }
             return changed;
         }
 
-        /// <summary>Lower the corner speed around <paramref name="distance"/> by <paramref name="amount"/> (floored at MinTrim). True if anything changed.</summary>
-        public bool Learn(float distance, float amount)
+        /// <summary>Plan at most <paramref name="share"/> of the corner limit from 40 m before to 10 m after <paramref name="distance"/>. True if anything changed.</summary>
+        public bool CapAt(float distance, float share)
         {
-            int n = _trim.Length, b = (int)(Mathf.Repeat(distance, _length) / _length * n) % n;
+            if (!float.IsFinite(share)) return false;
+            share = Mathf.Max(MinScale, share);
+            return Lower(distance, s => Mathf.Min(s, share));
+        }
+
+        /// <summary>Lower the plan around <paramref name="distance"/> by <paramref name="amount"/> (floored at MinScale). True if anything changed.</summary>
+        public bool Learn(float distance, float amount) => Lower(distance, s => Mathf.Max(MinScale, s - amount));
+
+        /// <summary>Start from shares learned in earlier races (TrackLearning). Ignored when the bin count differs.</summary>
+        public void Preload(IReadOnlyList<float> saved)
+        {
+            if (saved == null || saved.Count != _scale.Length) return;
+            for (int i = 0; i < _scale.Length; i++)
+                if (saved[i] > 0f && saved[i] < _scale[i]) _scale[i] = Mathf.Max(MinScale, saved[i]);
+        }
+
+        private bool Lower(float distance, System.Func<float, float> rule)
+        {
+            int n = _scale.Length, b = (int)(Mathf.Repeat(distance, _length) / _length * n) % n;
             bool changed = false;
             for (int j = b - ApproachBins; j <= b + PastBins; j++)
             {
                 int k = ((j % n) + n) % n;
-                float t = Mathf.Max(MinTrim, _trim[k] - amount);
-                if (t < _trim[k]) { _trim[k] = t; changed = true; }
+                float s = rule(_scale[k]);
+                if (s < _scale[k]) { _scale[k] = s; changed = true; }
             }
             return changed;
         }
@@ -93,14 +113,38 @@ namespace F1Racing.AI.Driving
         }
     }
 
-    /// <summary>D04: follow or overtake, with hysteresis so the decision doesn't flicker.</summary>
-    public sealed class TacticalDriver
+    /// <summary>
+    /// D04 interface (architecture v1.2 §2). The tactical layer only picks a lane (-1 left, 0 line, +1 right); D05/D06 drive
+    /// it and D08 can override it. Later variants (lookahead, world-model planner) plug in here beside the scripted baseline.
+    /// </summary>
+    public interface ITacticalDriver
+    {
+        /// <summary>At the start: stay in the grid lane until <paramref name="until"/>, even with a car ahead in it.</summary>
+        void HoldLane(float side, float until);
+        /// <summary>Corner attack: take <paramref name="side"/> until <paramref name="until"/> while that lane stays free.</summary>
+        void Commit(float side, float until);
+        /// <summary>Drop any held or committed lane (a dive backed out or ended).</summary>
+        void Release();
+        float Decide(float now, float gapAheadM, bool leftFree, bool rightFree, float preferredSide, float currentSide, float aggression);
+    }
+
+    /// <summary>D04 scripted baseline (v1.2 ScriptedTacticalDriver): follow or overtake, with hysteresis so the decision doesn't flicker.</summary>
+    public sealed class ScriptedTacticalDriver : ITacticalDriver
     {
         private const float HoldSeconds = 2f;
         private bool _overtaking, _startHold;
         private float _side, _holdUntil;
 
-        /// <summary>At the start: stay in the grid lane until <paramref name="until"/>, even with a car ahead in it.</summary>
+        public void Commit(float side, float until)
+        {
+            _overtaking = true;
+            _startHold = false;
+            _side = side;
+            _holdUntil = until;
+        }
+
+        public void Release() => _overtaking = _startHold = false;
+
         public void HoldLane(float side, float until)
         {
             _overtaking = _startHold = true;
@@ -190,12 +234,31 @@ namespace F1Racing.AI.Driving
             if (best < float.MaxValue) timeGapS = best / Mathf.Max(speed, 1f);
         }
 
-        public static VehicleCommand Apply(VehicleCommand cmd, float speed, float timeGapS, float closingMs)
+        /// <summary>Race 17: 21 cars reached the first chicane 0.06-0.15 s apart and piled up when the leaders braked. Keep a
+        /// minimum gap even when not closing: lift below it, brake up to half below half of it. Provisional value.</summary>
+        public const float MinHeadwayS = 0.3f;
+        /// <summary>Race 29: with closing handled by time to contact, the 0.3 s floor held followers at exactly 0.30-0.33 s, short of
+        /// the tow that brings a car alongside. After the start the floor is this. Provisional.</summary>
+        public const float RacingHeadwayS = 0.15f;
+        /// <summary>Time to contact (s) at the current closing speed: lift below the first, brake below the second. Provisional.</summary>
+        public const float LiftContactS = 1.5f, BrakeContactS = 0.75f;
+
+        public static VehicleCommand Apply(VehicleCommand cmd, float speed, float timeGapS, float closingMs, float minHeadwayS = MinHeadwayS)
         {
-            if (closingMs <= 0f || timeGapS > 0.8f) return cmd;
+            if (timeGapS < minHeadwayS && speed > 3f)
+            {
+                cmd.Drs = false;
+                cmd.Throttle = 0f;
+                cmd.Brake = Mathf.Max(cmd.Brake, Mathf.Clamp01(1f - 2f * timeGapS / minHeadwayS) * 0.5f);
+            }
+            // Race 28: lifting and shutting DRS on any closing within 0.8 s held followers 0.4-0.9 s back, out of the tow and
+            // DRS they had earned (Max behind Kimi all race). Act on time to contact instead.
+            if (closingMs <= 0f) return cmd;
+            float contactS = timeGapS * Mathf.Max(speed, 1f) / closingMs;
+            if (contactS > LiftContactS) return cmd;
             cmd.Drs = false;
             cmd.Throttle = Mathf.Min(cmd.Throttle, 0.2f);
-            if (timeGapS < 0.5f && speed > 3f)
+            if (contactS < BrakeContactS && speed > 3f)
             {
                 cmd.Throttle = 0f;
                 cmd.Brake = Mathf.Max(cmd.Brake, Mathf.Clamp01(closingMs * 0.25f));

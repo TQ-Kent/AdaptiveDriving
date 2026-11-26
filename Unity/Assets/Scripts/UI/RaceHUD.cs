@@ -14,6 +14,7 @@ namespace F1Racing.UI
         private const float NameTagRangeM = 120f;
 
         private RaceManager _race;
+        private bool _confirmReset; // race 14: the learning was deleted by a misclick, so reset needs a second click
         private F1ChaseCamera _chase;
         private Camera _cam;
         private Texture2D _panel, _rowHighlight, _disc, _white;
@@ -65,7 +66,7 @@ namespace F1Racing.UI
 
         private void DrawMenu()
         {
-            float w = 460f, h = GameModeManager.AIOpponents ? 568f : 406f;
+            float w = 460f, h = GameModeManager.AIOpponents ? 672f : 406f;
             Rect r = new Rect((Screen.width - w) * 0.5f, (Screen.height - h) * 0.5f, w, h);
             GUI.DrawTexture(r, _panel);
             float y = r.y + 18f, x = r.x + 30f, cw = w - 60f;
@@ -104,17 +105,46 @@ namespace F1Racing.UI
             if (GUI.Button(new Rect(x, y, half, 32f), GameModeManager.FunMode ? "Fun mode: on" : "Fun mode: off", _button)) GameModeManager.SwitchMode();
             if (GUI.Button(new Rect(x + half + 10f, y, half, 32f), GameModeManager.AIOpponents ? "Opponents: AI" : "Opponents: 2P", _button)) GameModeManager.ToggleAIOpponents();
             y += 46f;
-            if (GUI.Button(new Rect(x, y, cw, 32f), RaceSettings.Ghost ? "Ghost cars: on (no car-to-car contact)" : "Ghost cars: off (full contact)", _button))
+            if (GUI.Button(new Rect(x, y, half, 32f), RaceSettings.Ghost ? "Ghost cars: on" : "Ghost cars: off", _button))
                 RaceSettings.Ghost = !RaceSettings.Ghost;
+            if (GameModeManager.AIOpponents && GUI.Button(new Rect(x + half + 10f, y, half, 32f), RaceSettings.ShowRacingLine ? "AI racing line: on (L)" : "AI racing line: off (L)", _button))
+                RaceSettings.ShowRacingLine = !RaceSettings.ShowRacingLine;
             y += 46f;
+            if (GameModeManager.AIOpponents)
+            {
+                // v1.2: compare the D04 variants at the same difficulty and physics. The grid is built with it, so reload.
+                if (GUI.Button(new Rect(x, y, cw, 32f), RaceSettings.LookaheadTactics ? "AI tactics: lookahead (plans attacks and defence)"
+                                                                                    : "AI tactics: scripted (baseline)", _button))
+                {
+                    RaceSettings.LookaheadTactics = !RaceSettings.LookaheadTactics;
+                    GameModeManager.ReloadScene();
+                }
+                y += 46f;
+                // The AI keeps the corner speed limits it learned on this track between races (TrackLearning).
+                bool learned = System.IO.File.Exists(F1Racing.AI.Driving.TrackLearning.FilePath);
+                string label = !learned ? "AI track learning: none saved yet"
+                    : _confirmReset ? "Click again to delete the AI track learning"
+                    : "Reset AI track learning (AI keeps corner limits between races)";
+                if (GUI.Button(new Rect(x, y, cw, 28f), label, _button) && learned)
+                {
+                    if (!_confirmReset) _confirmReset = true;
+                    else
+                    {
+                        _confirmReset = false;
+                        F1Racing.AI.Driving.TrackLearning.Reset();
+                        GameModeManager.ReloadScene(); // the grid loaded the old caps
+                    }
+                }
+                y += 58f; // gap so a click aimed at START RACE can't land here
+            }
             Color prev = GUI.backgroundColor;
             GUI.backgroundColor = new Color(0.3f, 1f, 0.45f);
-            if (GUI.Button(new Rect(x, y, cw, 50f), "START RACE", _bigButton)) _race.StartCountdown();
+            if (GUI.Button(new Rect(x, y, cw, 50f), "START RACE", _bigButton)) { _confirmReset = false; _race.StartCountdown(); }
             GUI.backgroundColor = prev;
             y += 60f;
 
             GUI.Label(new Rect(x, y, cw, 40f),
-                "WASD drive · Shift DRS · Space handbrake · R reset\nC change car · P first person · N map" + (GameModeManager.FunMode ? " · M model · F front cam" : ""), _small);
+                "WASD drive · Shift DRS · Space handbrake · R reset\nClick a name in the tower to watch that car · P first person · N map" + (GameModeManager.FunMode ? " · M model · F front cam" : ""), _small);
         }
 
         // ---------------- Start lights ----------------
@@ -155,6 +185,8 @@ namespace F1Racing.UI
             Rect r = new Rect(16f, 122f, w, 30f + rowH * standings.Count);
             GUI.DrawTexture(r, _panel);
             GUI.Label(new Rect(r.x + 10f, r.y + 4f, w, 22f), _race.FlagOut ? "CHEQUERED FLAG" : $"LAP {lap} / {RaceSettings.Laps}", _text);
+            if (_chase != null) GUI.Label(new Rect(r.x + 120f, r.y + 6f, w - 126f, 20f), "click a name: watch", _small);
+            F1CarController watched = _chase != null ? _chase.ActiveTarget : null;
 
             Color prev = GUI.color;
             for (int i = 0; i < standings.Count; i++)
@@ -168,7 +200,19 @@ namespace F1Racing.UI
                 GUI.color = prev;
                 GUI.Label(new Rect(r.x + 46f, y + 1f, 110f, rowH), e.Name, _text);
                 GUI.Label(new Rect(r.x + 150f, y + 1f, 95f, rowH), _race.GapText(e) + (e.PenaltyS > 0f ? $" +{e.PenaltyS:F0}s" : ""), _text);
+                Rect row = new Rect(r.x + 2f, y, w - 4f, rowH - 2f);
+                if (e.Car == watched) Outline(row);
+                // Choosing the camera car (replaces the old C key); the View button then picks chase / far / cockpit POV.
+                if (_chase != null && GUI.Button(row, GUIContent.none, GUIStyle.none)) _chase.Follow(e.Car);
             }
+        }
+
+        private void Outline(Rect r)
+        {
+            GUI.DrawTexture(new Rect(r.x, r.y, r.width, 1f), _white);
+            GUI.DrawTexture(new Rect(r.x, r.yMax - 1f, r.width, 1f), _white);
+            GUI.DrawTexture(new Rect(r.x, r.y, 1f, r.height), _white);
+            GUI.DrawTexture(new Rect(r.xMax - 1f, r.y, 1f, r.height), _white);
         }
 
         /// <summary>Player's DRS state, flags and the latest steward note (track limits, jump start).</summary>
@@ -277,7 +321,8 @@ namespace F1Racing.UI
                 GUI.Label(new Rect(r.x + 80f, y + 2f, 160f, rowH), e.Name + (e.Finished ? "" : "  (running)"), _text);
                 GUI.Label(new Rect(r.x + 250f, y + 2f, 150f, rowH), _race.ResultText(e) + (e.PenaltyS > 0f ? $" (+{e.PenaltyS:F0}s)" : ""), _text);
                 if (e == _race.FastestLap) GUI.color = new Color(0.75f, 0.35f, 1f); // purple: fastest lap
-                GUI.Label(new Rect(r.x + 380f, y + 2f, 120f, rowH), RaceStandings.FormatTime(e.BestLap), _text);
+                else if (float.IsNaN(e.BestLap)) GUI.color = new Color(0.6f, 0.6f, 0.6f); // grey: only deleted laps
+                GUI.Label(new Rect(r.x + 380f, y + 2f, 120f, rowH), RaceManager.BestLapText(e), _text);
                 GUI.color = prev;
                 GUI.Label(new Rect(r.x + 500f, y + 2f, 50f, rowH), e.Finished ? RaceRules.PointsFor(i + 1).ToString() : "-", _text);
                 y += rowH;

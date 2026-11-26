@@ -71,7 +71,8 @@ namespace F1Racing.UI
 
             if ((AIOpponents || sweep) && second != null) // before the minimap so it sees the clones
             {
-                AIGrid.Create(track, player, second, RaceSettings.Opponents, RaceSettings.Difficulty, sweep);
+                AIGrid grid = AIGrid.Create(track, player, second, RaceSettings.Opponents, RaceSettings.Difficulty, sweep);
+                if (!sweep) RacingLineView.Create(track, grid.Drivers[0]);
                 if (player == null || !player.gameObject.activeSelf) FollowWithMainCamera(second);
             }
 

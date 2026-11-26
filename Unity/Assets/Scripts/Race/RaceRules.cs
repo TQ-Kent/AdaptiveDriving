@@ -38,6 +38,14 @@ namespace F1Racing.Race
             new DrsZone(5f, 113f, 470f),
         };
 
+        // Slipstream: a car up to 1 s behind another and within 2 m sideways of it gets less drag (F1CarController.slipstreamDragCut),
+        // full at 0 s and fading to none at 1 s. Off on lap 1 until 200 m past the start line. Provisional values.
+        public const float SlipstreamGapS = 1f, SlipstreamLateralM = 2f, SlipstreamOffAfterStartM = 200f;
+
+        /// <summary>0..1 tow from a car <paramref name="gapS"/> seconds ahead and <paramref name="lateralM"/> to the side.</summary>
+        public static float SlipstreamFactor(float gapS, float lateralM) =>
+            float.IsFinite(gapS) && gapS > 0f && gapS < SlipstreamGapS && Mathf.Abs(lateralM) < SlipstreamLateralM ? 1f - gapS / SlipstreamGapS : 0f;
+
         public static bool PastTrackLimit(float lateralM, float trackHalfWidthM) => Mathf.Abs(lateralM) > trackHalfWidthM + TrackLimitSlackM;
 
         /// <summary>Time penalty (s) for strike number <paramref name="strike"/> (1-based).</summary>

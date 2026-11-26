@@ -36,7 +36,6 @@ namespace F1Racing.CameraSystem
         public int ViewIndex { get; private set; }
 
         private Camera _cam;
-        private int _activeCarIndex = 0;
 
         private void Awake()
         {
@@ -49,31 +48,19 @@ namespace F1Racing.CameraSystem
         {
             if (isSecondaryCamera) return;
 
-            if (Input.GetKeyDown(KeyCode.V))
+            if (GameInput.Down(KeyCode.V))
             {
                 IsSplitScreen = !IsSplitScreen;
                 ApplySplitScreenLayout(IsSplitScreen);
             }
-
-            if (!IsSplitScreen && Input.GetKeyDown(KeyCode.C))
-            {
-                // Every active car (AI clones included), player first.
-                var cars = new System.Collections.Generic.List<F1CarController>(FindObjectsByType<F1CarController>());
-                cars.Sort((a, b) => a == b ? 0 : a == car1Target ? -1 : b == car1Target ? 1 : string.CompareOrdinal(a.name, b.name));
-                if (cars.Count > 0)
-                {
-                    _activeCarIndex = (_activeCarIndex + 1) % cars.Count;
-                    ActiveTarget = cars[_activeCarIndex];
-                }
-            }
         }
 
-        /// <summary>Makes <paramref name="car"/> the main target (AI-only race: no player car to follow).</summary>
+        /// <summary>Watch <paramref name="car"/> (tower click, or the AI-only race start). Split screen still shows car 1 and 2.</summary>
         public void Follow(F1CarController car)
         {
-            car1Target = car;
+            if (car == null) return;
+            if (car1Target == null || !car1Target.isActiveAndEnabled) car1Target = car; // AI-only race: no player car
             ActiveTarget = car;
-            _activeCarIndex = 0;
         }
 
         /// <summary>Chase -> Far chase -> Cockpit (first person) -> Chase.</summary>
@@ -114,7 +101,6 @@ namespace F1Racing.CameraSystem
 
             if (split && secondarySplitCamera != null)
             {
-                _activeCarIndex = 0;
                 ActiveTarget = car1Target;
                 _cam.rect = new Rect(0f, 0.5f, 1f, 0.5f);
                 secondarySplitCamera.gameObject.SetActive(true);

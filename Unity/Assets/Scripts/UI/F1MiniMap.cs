@@ -42,7 +42,7 @@ namespace F1Racing.UI
 
         private void Update()
         {
-            if (Input.GetKeyDown(toggleKey)) visible = !visible;
+            if (GameInput.Down(toggleKey)) visible = !visible;
             if (Time.unscaledTime >= _nextCarScan)
             {
                 _cars = FindObjectsByType<F1CarController>();

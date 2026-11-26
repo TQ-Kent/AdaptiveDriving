@@ -18,16 +18,18 @@ Do not treat architecture diagrams or provisional numeric defaults as measured r
 
 When present in the repository, read these documents before making architectural changes:
 
-1. `adaptive_racing_architecture_v1_1.md` — primary implementation specification.
-2. `unified_racing_game_ai_complete_structure.md` — integrated component graph, component catalogue, runtime paths, message contracts, and acceptance checklist.
-3. `architecture_summary.md` — concise explanation of the intended system and player-facing behavior.
+1. `adaptive_racing_architecture_v1_2.md` — primary implementation specification. Its v1.2 sections (two predictive loops, D04 tactical responsibilities) supersede the inherited v1.1 text in the same file wherever they differ.
+2. `sequence_v1_2.md` — implementation order (phases 0–6 and their exit gates); supersedes the order of the inherited checklist.
+3. `unified_racing_game_ai_complete_structure.md` — integrated component graph, component catalogue, runtime paths, message contracts, and acceptance checklist.
+4. `architecture_summary.md` — concise explanation of the intended system and player-facing behavior.
+5. `adaptive_racing_architecture_v1_1.md` — previous version, kept for reference only.
 
-The v1.1 architecture is authoritative when implementing behavior. The unified structure expands responsibilities and ownership; it does not authorize unrelated features. The summary is an explanatory overview.
+The v1.2 architecture is authoritative when implementing behavior. The unified structure expands responsibilities and ownership; it does not authorize unrelated features. The summary is an explanatory overview.
 
 If the documents are absent, ask the user to provide them or state clearly which decisions cannot be verified. Do not silently invent missing requirements.
 
 If documents conflict:
-- Preserve the explicit executive decisions and fairness invariants in architecture v1.1.
+- Preserve the explicit executive decisions and fairness invariants in architecture v1.2 (inherited from v1.1).
 - Preserve the unified graph's ownership boundaries where they clarify implementation.
 - Do not silently resolve a substantive conflict. Explain it and ask for direction.
 - Keep provisional settings configurable and label them as unvalidated defaults.
@@ -185,7 +187,7 @@ Use one normalized command contract:
 Reject NaN/infinite values and clamp or reject out-of-range values according to the contract. Ensure exactly one selected command source controls each vehicle at a time.
 
 The driving pipeline should use:
-- `TacticalDriver` for follow/overtake/yield decisions, with stable decisions and hysteresis.
+- D04 tactical layer behind `ITacticalDriver` for follow/overtake/yield decisions, with stable decisions and hysteresis. `ScriptedTacticalDriver` stays a selectable baseline; v1.2 lookahead/world-model variants (HoldLine, DefendInside, BackOut first; attacks later) plug in behind the same interface and only propose maneuvers. A late inside attack must have an abort path. The tactical loop races for position within fixed permissions and never touches difficulty (v1.2 §1).
 - `PathFollower` for speed-dependent look-ahead steering on a valid path/lane.
 - `PaceController` for target speed and braking look-ahead.
 - `DrivingSafetyFilter` as the independent final command restriction.
@@ -403,7 +405,7 @@ Do not introduce concurrency, event buses, or global frameworks without a concre
 
 ## 11. Implementation workflow for Claude Code
 
-Follow this sequence unless the user explicitly requests a different bounded task:
+Follow the phase order and exit gates in `sequence_v1_2.md` (do not finalize M02 calibration before the tactical driver is selected). Within that order, use this sequence unless the user explicitly requests a different bounded task:
 
 1. **Inspect before editing**
    - Inspect the existing repository, Unity version, packages, assemblies, scenes, input setup, and current code.

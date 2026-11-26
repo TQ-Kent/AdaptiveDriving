@@ -18,30 +18,31 @@ namespace F1Racing.AI
         public int pythonTimeoutMs = 250;
 
         // Fictional drivers. Offsets stay small and spread so drivers don't saturate at the same bound.
+        // Then: aggression, livery, and the v1.2 style lateBraking, defending, patience (provisional, chosen for variety).
         public OpponentIdentity[] identities =
         {
-            new OpponentIdentity("Max", 0.04f, 0.6f, new Color(0.15f, 0.45f, 1f)),
-            new OpponentIdentity("Kimi", -0.03f, 0.4f, new Color(0.1f, 0.75f, 0.3f)),
-            new OpponentIdentity("Lewis", 0f, 0.5f, new Color(1f, 0.5f, 0.05f)),
-            new OpponentIdentity("George", 0.06f, 0.7f, new Color(0.6f, 0.2f, 0.9f)),
-            new OpponentIdentity("Charles", -0.06f, 0.3f, new Color(1f, 0.85f, 0.1f)),
-            new OpponentIdentity("Lando", 0.02f, 0.5f, new Color(0.95f, 0.95f, 0.95f)),
-            new OpponentIdentity("Oscar", -0.02f, 0.6f, new Color(0.1f, 0.1f, 0.12f)),
-            new OpponentIdentity("Isack", 0.05f, 0.45f, new Color(0f, 0.8f, 0.8f)),
-            new OpponentIdentity("Liam", -0.05f, 0.55f, new Color(1f, 0.4f, 0.7f)),
-            new OpponentIdentity("Bearman", 0.01f, 0.35f, new Color(0.45f, 0.25f, 0.1f)),
-            new OpponentIdentity("Pierre", -0.01f, 0.65f, new Color(0.6f, 0.6f, 0.65f)),
-            new OpponentIdentity("Franco", 0.03f, 0.4f, new Color(0.05f, 0.2f, 0.5f)),
-            new OpponentIdentity("Fernando", -0.04f, 0.7f, new Color(0.55f, 0.85f, 0.2f)),
-            new OpponentIdentity("Carlos", 0.07f, 0.5f, new Color(0.7f, 0f, 0.15f)),
-            new OpponentIdentity("Alexander", -0.07f, 0.3f, new Color(0.9f, 0.7f, 0.5f)),
-            new OpponentIdentity("Lance", 0.0f, 0.6f, new Color(0f, 0.45f, 0.25f)),
-            new OpponentIdentity("Valtteri", 0.04f, 0.35f, new Color(0.35f, 0.75f, 1f)),
-            new OpponentIdentity("Rafael", -0.03f, 0.55f, new Color(1f, 0.3f, 0.2f)),
-            new OpponentIdentity("Nico", 0.06f, 0.45f, new Color(0.75f, 0.55f, 1f)),
-            new OpponentIdentity("Arvid", -0.06f, 0.65f, new Color(0.85f, 0.85f, 0.3f)),
-            new OpponentIdentity("Sergio", 0.02f, 0.4f, new Color(0.2f, 0.3f, 0.3f)),
-            new OpponentIdentity("Gabriel", -0.02f, 0.5f, new Color(1f, 0.6f, 0f)),
+            new OpponentIdentity("Max", 0.04f, 0.6f, new Color(0.15f, 0.45f, 1f), 0.9f, 0.8f, 0.2f),
+            new OpponentIdentity("Kimi", -0.03f, 0.4f, new Color(0.1f, 0.75f, 0.3f), 0.6f, 0.4f, 0.5f),
+            new OpponentIdentity("Lewis", 0f, 0.5f, new Color(1f, 0.5f, 0.05f), 0.7f, 0.6f, 0.6f),
+            new OpponentIdentity("George", 0.06f, 0.7f, new Color(0.6f, 0.2f, 0.9f), 0.5f, 0.7f, 0.4f),
+            new OpponentIdentity("Charles", -0.06f, 0.3f, new Color(1f, 0.85f, 0.1f), 0.8f, 0.3f, 0.3f),
+            new OpponentIdentity("Lando", 0.02f, 0.5f, new Color(0.95f, 0.95f, 0.95f), 0.5f, 0.5f, 0.6f),
+            new OpponentIdentity("Oscar", -0.02f, 0.6f, new Color(0.1f, 0.1f, 0.12f), 0.4f, 0.8f, 0.7f),
+            new OpponentIdentity("Isack", 0.05f, 0.45f, new Color(0f, 0.8f, 0.8f), 0.7f, 0.4f, 0.3f),
+            new OpponentIdentity("Liam", -0.05f, 0.55f, new Color(1f, 0.4f, 0.7f), 0.6f, 0.3f, 0.4f),
+            new OpponentIdentity("Bearman", 0.01f, 0.35f, new Color(0.45f, 0.25f, 0.1f), 0.3f, 0.6f, 0.7f),
+            new OpponentIdentity("Pierre", -0.01f, 0.65f, new Color(0.6f, 0.6f, 0.65f), 0.6f, 0.5f, 0.5f),
+            new OpponentIdentity("Franco", 0.03f, 0.4f, new Color(0.05f, 0.2f, 0.5f), 0.8f, 0.2f, 0.2f),
+            new OpponentIdentity("Fernando", -0.04f, 0.7f, new Color(0.55f, 0.85f, 0.2f), 0.7f, 0.9f, 0.5f),
+            new OpponentIdentity("Carlos", 0.07f, 0.5f, new Color(0.7f, 0f, 0.15f), 0.5f, 0.7f, 0.6f),
+            new OpponentIdentity("Alexander", -0.07f, 0.3f, new Color(0.9f, 0.7f, 0.5f), 0.3f, 0.5f, 0.8f),
+            new OpponentIdentity("Lance", 0.0f, 0.6f, new Color(0f, 0.45f, 0.25f), 0.4f, 0.6f, 0.6f),
+            new OpponentIdentity("Valtteri", 0.04f, 0.35f, new Color(0.35f, 0.75f, 1f), 0.3f, 0.4f, 0.8f),
+            new OpponentIdentity("Rafael", -0.03f, 0.55f, new Color(1f, 0.3f, 0.2f), 0.7f, 0.3f, 0.3f),
+            new OpponentIdentity("Nico", 0.06f, 0.45f, new Color(0.75f, 0.55f, 1f), 0.4f, 0.8f, 0.7f),
+            new OpponentIdentity("Arvid", -0.06f, 0.65f, new Color(0.85f, 0.85f, 0.3f), 0.6f, 0.4f, 0.4f),
+            new OpponentIdentity("Sergio", 0.02f, 0.4f, new Color(0.2f, 0.3f, 0.3f), 0.5f, 0.9f, 0.5f),
+            new OpponentIdentity("Gabriel", -0.02f, 0.5f, new Color(1f, 0.6f, 0f), 0.8f, 0.3f, 0.4f),
         };
 
         private const int RecentLapCount = 20;
@@ -84,15 +85,24 @@ namespace F1Racing.AI
 
             // One racing line per track, shared by every AI car (same usable width as AIDriver's lane clamp).
             RacingLine line = RacingLine.Build(track.Spline, track.trackWidth * 0.5f - AIDriver.LineEdgeMarginM); // inside the white lines (track limits)
+            OpponentIdentity[] racing = PaceProfileMapper.RelativeToBest(identities, count);
             for (int i = 0; i < count; i++)
             {
                 var driver = cars[i].gameObject.AddComponent<AIDriver>();
-                driver.Init(identities[i], track, field, difficulty, line);
+                driver.Init(racing[i], track, field, difficulty, line);
                 driver.LapObserved += Remember;
                 _drivers.Add(driver);
             }
 
             if (sweep) gameObject.AddComponent<PaceSweep>().Begin(_drivers[0]);
+            else
+            {
+                float[] learned = TrackLearning.Load(TrackLearning.Key(track.Spline.TotalLength, F1TrackGenerator.StartLineDistance, template.PhysicsSpecKey()));
+                int capped = 0;
+                if (learned != null) foreach (float c in learned) if (c < 1f) capped++;
+                foreach (AIDriver d in _drivers) d.PreloadScale(learned);
+                Debug.Log($"[Race] track learning: loaded {capped} capped line points from {TrackLearning.FilePath}");
+            }
         }
 
         private void Remember(LapObservation lap)
@@ -103,8 +113,8 @@ namespace F1Racing.AI
 
         private void Update()
         {
-            if (Input.GetKeyDown(KeyCode.F8)) Probe(new PythonAIClient.Request { type = "ping" });
-            if (Input.GetKeyDown(KeyCode.F7) && _drivers.Count > 0)
+            if (GameInput.Down(KeyCode.F8)) Probe(new PythonAIClient.Request { type = "ping" });
+            if (GameInput.Down(KeyCode.F7) && _drivers.Count > 0)
                 Probe(new PythonAIClient.Request
                 {
                     type = "recommend_difficulty",

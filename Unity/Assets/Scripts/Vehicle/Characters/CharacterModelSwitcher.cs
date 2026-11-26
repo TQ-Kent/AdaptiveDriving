@@ -62,7 +62,7 @@ namespace F1Racing.Vehicle.Characters
 
         private void Update()
         {
-            if (Input.GetKeyDown(switchKey)) Select((_index + 1) % OptionCount);
+            if (GameInput.Down(switchKey)) Select((_index + 1) % OptionCount);
         }
 
         private void Select(int index)

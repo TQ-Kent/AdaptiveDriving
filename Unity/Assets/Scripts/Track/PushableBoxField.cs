@@ -85,7 +85,7 @@ namespace F1Racing.Track
 
         private void Update()
         {
-            if (Input.GetKeyDown(respawnKey))
+            if (GameInput.Down(respawnKey))
             {
                 Spawn();
                 ShowToast("Boxes reset");

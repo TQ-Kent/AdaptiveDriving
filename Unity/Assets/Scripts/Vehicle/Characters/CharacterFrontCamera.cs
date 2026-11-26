@@ -33,7 +33,7 @@ namespace F1Racing.Vehicle.Characters
 
         private void Update()
         {
-            if (Input.GetKeyDown(toggleKey))
+            if (GameInput.Down(toggleKey))
             {
                 mode = (Mode)(((int)mode + 1) % 3);
                 Apply();

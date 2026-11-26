@@ -16,15 +16,19 @@ namespace F1Racing.Race
         public static readonly string[] DifficultyNames = { "Easy", "Normal", "Hard", "Expert" };
         public static readonly float[] DifficultyValues = { 0.25f, 0.5f, 0.8f, 1f };
 
-        public static int DifficultyIndex = 1;
-        public static int Opponents = 3;
+        public static int DifficultyIndex = 3; // default test setup: 22 AI cars, Expert, collisions on, no human car
+        public static int Opponents = MaxOpponents;
         public const int MaxOpponents = 22;
-        /// <summary>Off: no human car, an AI-only race to watch (C cycles the camera).</summary>
-        public static bool HumanPlayer = true;
+        /// <summary>Off: no human car, an AI-only race to watch (click a tower name to switch car).</summary>
+        public static bool HumanPlayer = false;
+        /// <summary>Show the AI racing line painted on the track (L key or menu). Visual only.</summary>
+        public static bool ShowRacingLine;
         /// <summary>Restart: reload straight into the countdown with the same settings.</summary>
         public static bool SkipMenu;
         /// <summary>Ghost cars: no car-to-car collisions (all cars, human and AI alike). Locked at the start like difficulty.</summary>
-        public static bool Ghost = true;
+        public static bool Ghost = false;
+        /// <summary>v1.2 D04 variant for every AI: the lookahead planner, or off for the scripted baseline (to compare). Set at grid build.</summary>
+        public static bool LookaheadTactics = true;
         /// <summary>Unnamed physics layer the cars are moved to so their mutual collisions can be switched off.</summary>
         public const int CarLayer = 8;
 
@@ -33,11 +37,12 @@ namespace F1Racing.Race
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
         private static void ResetStatics()
         {
-            DifficultyIndex = 1;
-            Opponents = 3;
-            HumanPlayer = true;
+            DifficultyIndex = 3;
+            Opponents = MaxOpponents;
+            HumanPlayer = false;
+            ShowRacingLine = false;
             SkipMenu = false;
-            Ghost = true;
+            Ghost = false;
         }
     }
 
@@ -82,6 +87,17 @@ namespace F1Racing.Race
                 float best = float.NaN;
                 for (int i = 0; i < LapTimes.Count; i++)
                     if (LapValid[i] && (float.IsNaN(best) || LapTimes[i] < best)) best = LapTimes[i];
+                return best;
+            }
+        }
+
+        /// <summary>Best lap including deleted ones (NaN if none): shown, marked, when there is no valid lap.</summary>
+        public float BestAnyLap
+        {
+            get
+            {
+                float best = float.NaN;
+                foreach (float t in LapTimes) if (float.IsNaN(best) || t < best) best = t;
                 return best;
             }
         }
@@ -145,7 +161,10 @@ namespace F1Racing.Race
         private RaceLog _log;
         private double _startTime, _countdownStart, _lightsOutAt;
         private float _flagTime, _nextFlush, _lapLength, _nextHumanSample, _nextInputSample;
-        private string _lastOrder = "";
+        private string _lastOrder = "", _pendingOrder;
+        private float _pendingOrderAt;
+        private const float OrderSettleS = 1f;
+        private readonly Dictionary<RaceEntry, int> _prevPos = new Dictionary<RaceEntry, int>();
         private TrackFlagController _flags;
         private TrackFlagState _flagShown = TrackFlagState.Green;
         private int _lightsShown = -1;
@@ -186,7 +205,8 @@ namespace F1Racing.Race
 
             _log = new RaceLog();
             _log.Event($"race settings locked: laps={RaceSettings.Laps} difficulty={RaceSettings.DifficultyNames[RaceSettings.DifficultyIndex]} " +
-                       $"({RaceSettings.Difficulty:F2}, manual) cars={_entries.Count} ghost={RaceSettings.Ghost}");
+                       $"({RaceSettings.Difficulty:F2}, manual) cars={_entries.Count} ghost={RaceSettings.Ghost} " +
+                       $"tactics={(RaceSettings.LookaheadTactics ? "lookahead" : "scripted")}");
             ApplyGhost(RaceSettings.Ghost);
             string spec = _entries[0].Car.PhysicsSpecKey();
             bool sameSpec = _entries.TrueForAll(e => e.Car.PhysicsSpecKey() == spec);
@@ -344,10 +364,13 @@ namespace F1Racing.Race
             foreach (RaceEntry e in _entries)
             {
                 bool blue = false, yellow = false;
+                float slip = 0f;
                 foreach (RaceEntry o in _entries)
                 {
                     if (o == e || o.Finished || float.IsNaN(o.SplineM) || float.IsNaN(e.SplineM)) continue;
                     float behind = Mathf.Repeat(e.SplineM - o.SplineM, _lapLength); // o is this far behind e on track
+                    // Slipstream (same rule for every car): o is ahead of e on the road, within 1 s and roughly in line.
+                    slip = Mathf.Max(slip, RaceRules.SlipstreamFactor((_lapLength - behind) / Mathf.Max(e.Speed, 10f), Mathf.Abs(o.Lateral - e.Lateral)));
                     if (o.Progress.RaceProgress - e.Progress.RaceProgress > _lapLength * 0.5f && behind < Mathf.Max(o.Speed, 10f) * RaceRules.BlueFlagGapS)
                         blue = true;
                     bool stopped = o.Speed < RaceRules.YellowStoppedMs && now > 8f;
@@ -362,6 +385,8 @@ namespace F1Racing.Race
                 e.BlueFlag = blue && !e.Finished;
                 e.YellowAhead = yellow && !e.Finished;
                 if (e.Driver != null) e.Driver.BlueFlag = e.BlueFlag;
+                bool startZone = e.Progress.Laps == 0 && (e.Progress.LapDistance < RaceRules.SlipstreamOffAfterStartM || e.Progress.LapDistance > _lapLength - RaceRules.SlipstreamOffAfterStartM); // grid: behind the line
+                e.Car.SlipstreamFactor = e.Finished || startZone ? 0f : slip; // no tow while the grid is still bunched up
             }
             SetTrackFlag(anyYellow ? TrackFlagState.Yellow : TrackFlagState.Green);
         }
@@ -473,10 +498,24 @@ namespace F1Racing.Race
             var sb = new StringBuilder();
             foreach (RaceEntry e in _order) sb.Append(e.Name).Append(' ');
             string order = sb.ToString();
-            if (order != _lastOrder)
+            // Race 13: side-by-side cars swapped order every frame (8681 "passes" lines). Log an order only once it holds 1 s.
+            if (order == _lastOrder) _pendingOrder = null;
+            else if (order != _pendingOrder) { _pendingOrder = order; _pendingOrderAt = Time.time; }
+            if (order != _lastOrder && (_lastOrder.Length == 0 || Time.time - _pendingOrderAt >= OrderSettleS))
             {
-                if (_lastOrder.Length > 0) _log.Event("order: " + order);
+                if (_lastOrder.Length > 0)
+                {
+                    _log.Event("order: " + order);
+                    // Overtakes, for tuning the corner dives: who passed whom, and where.
+                    for (int i = 0; i + 1 < _order.Count; i++)
+                    {
+                        RaceEntry a = _order[i], b = _order[i + 1];
+                        if (_prevPos.TryGetValue(a, out int pa) && _prevPos.TryGetValue(b, out int pb) && pa > pb && !a.Finished)
+                            _log.Event($"{a.Name} passes {b.Name} at lap {a.Progress.Laps + 1}, {a.Progress.LapDistance:F0} m, {a.Speed * 3.6f:F0} km/h");
+                    }
+                }
                 _lastOrder = order;
+                for (int i = 0; i < _order.Count; i++) _prevPos[_order[i]] = i;
             }
         }
 
@@ -525,10 +564,25 @@ namespace F1Racing.Race
             {
                 RaceEntry e = _order[i];
                 _log.Event($"  P{i + 1} {e.Name,-10} {ResultText(e),-12} pts {RaceRules.PointsFor(i + 1),2} pen {e.PenaltyS:F0}s strikes {e.Strikes} " +
-                           $"best {RaceStandings.FormatTime(e.BestLap)}{(e == FastestLap ? " FASTEST" : "")} laps {string.Join(" ", e.LapTimes.ConvertAll(t => t.ToString("F2")))}");
+                           $"best {BestLapText(e)}{(e == FastestLap ? " FASTEST" : "")} laps {string.Join(" ", e.LapTimes.ConvertAll(t => t.ToString("F2")))}");
+            }
+
+            // Keep what the AI learned about this track (median over drivers) for the next race.
+            var caps = new List<IReadOnlyList<float>>();
+            foreach (RaceEntry e in _entries) if (e.Driver != null) caps.Add(e.Driver.LearnedScale);
+            if (caps.Count > 0)
+            {
+                F1Racing.Track.F1TrackGenerator track = _entries[0].Progress.track;
+                string key = TrackLearning.Key(track.Spline.TotalLength, F1Racing.Track.F1TrackGenerator.StartLineDistance, _entries[0].Car.PhysicsSpecKey());
+                _log.Event($"track learning: saved {TrackLearning.Save(key, caps)} capped line points");
             }
             _log.Flush();
         }
+
+        /// <summary>Best valid lap; with none, the best deleted lap marked "(del)" (it never counts for fastest lap).</summary>
+        public static string BestLapText(RaceEntry e) =>
+            !float.IsNaN(e.BestLap) ? RaceStandings.FormatTime(e.BestLap)
+            : !float.IsNaN(e.BestAnyLap) ? RaceStandings.FormatTime(e.BestAnyLap) + " (del)" : RaceStandings.FormatTime(float.NaN);
 
         /// <summary>Tower/results text: "Leader", "+1.234" (at the line), "+1.2" (running, at the last marker) or "+1 lap".</summary>
         public string GapText(RaceEntry e)

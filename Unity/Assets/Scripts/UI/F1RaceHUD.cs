@@ -51,7 +51,7 @@ namespace F1Racing.UI
             if (car1 != null && car1.isActiveAndEnabled)
                 DrawCarTelemetry(new Rect(16, 16, 250, 95), car1, "P1 (WASD + L-Shift DRS)");
             else if (mainChaseCamera != null && mainChaseCamera.ActiveTarget != null) // AI-only race
-                DrawCarTelemetry(new Rect(16, 16, 250, 95), mainChaseCamera.ActiveTarget, "watching (C = next car)");
+                DrawCarTelemetry(new Rect(16, 16, 250, 95), mainChaseCamera.ActiveTarget, "watching (click a name to switch)");
 
             if (car2 != null && !GameModeManager.AIOpponents) // with AI on, car 2 is an AI opponent
             {
@@ -60,13 +60,13 @@ namespace F1Racing.UI
 
             string camText = (mainChaseCamera != null && mainChaseCamera.IsSplitScreen)
                 ? "Split-Screen ON (V)"
-                : $"Cam: {(mainChaseCamera != null && mainChaseCamera.ActiveTarget != null ? mainChaseCamera.ActiveTarget.carName : "Car 1")} (C = next car, V = split)";
+                : $"Cam: {(mainChaseCamera != null && mainChaseCamera.ActiveTarget != null ? mainChaseCamera.ActiveTarget.carName : "Car 1")} (click a name to watch, V = split)";
             string fun = GameModeManager.FunMode ? "  |  M model  F front cam  B boxes" : "";
 
-            float w = GameModeManager.FunMode ? 700f : 480f;
+            float w = GameModeManager.FunMode ? 760f : 540f;
             GUI.Box(new Rect(Screen.width * 0.5f - w * 0.5f, Screen.height - 42, w, 28), "", _panelStyle);
             GUI.Label(new Rect(Screen.width * 0.5f - w * 0.5f + 10f, Screen.height - 38, w - 20f, 22),
-                $"{camText}  |  P: First person  |  R: Reset  |  N: Map{fun}", _labelStyle);
+                $"{camText}  |  P: First person  |  R: Reset  |  N: Map  |  L: Line{fun}", _labelStyle);
         }
 
         private void DrawCarTelemetry(Rect rect, F1CarController car, string subtitle)
