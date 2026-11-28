@@ -1,0 +1,161 @@
+{
+  "release_approved": true,
+  "gates": [
+    {
+      "gate": "tactical_neural_beats_or_matches_template_nll",
+      "passed": true,
+      "detail": "neural_nll=1.4124 vs template_nll=1.4422"
+    },
+    {
+      "gate": "tactical_calibration_ece_under_0_08",
+      "passed": true,
+      "detail": "ece=0.0672"
+    },
+    {
+      "gate": "tactical_onnx_parity_under_1e-5",
+      "passed": true,
+      "detail": "max_diff=4.77e-07"
+    },
+    {
+      "gate": "tactical_cpu_p99_under_2ms",
+      "passed": true,
+      "detail": "p99=0.0524ms"
+    },
+    {
+      "gate": "m02_monotonic_calibration",
+      "passed": true,
+      "detail": "tables=6, driver=v1.2-acwm"
+    },
+    {
+      "gate": "m01_1step_beats_rolling_baseline",
+      "passed": true,
+      "detail": "m01=0.0259 vs rolling=0.0339"
+    },
+    {
+      "gate": "m01_3step_beats_rolling_baseline",
+      "passed": true,
+      "detail": "step3 m01=1.301s vs rolling=1.515s"
+    },
+    {
+      "gate": "m01_uncertainty_coverage_sane",
+      "passed": true,
+      "detail": "coverage_90=0.7917"
+    },
+    {
+      "gate": "m01_ood_disagreement_rises",
+      "passed": true,
+      "detail": "ood=0.0266 vs id=0.0044"
+    },
+    {
+      "gate": "m01_onnx_parity_under_1e-5",
+      "passed": true,
+      "detail": "max_diff=9.54e-07"
+    },
+    {
+      "gate": "m01_cpu_p99_under_5ms",
+      "passed": true,
+      "detail": "3x_member_p99=0.464ms"
+    }
+  ],
+  "tactical_response": {
+    "n_train": 5363,
+    "n_val": 1430,
+    "n_holdout": 3200,
+    "unity_rows_ingested": 393,
+    "temperature": 1.0568,
+    "neural_holdout": {
+      "nll": 1.4124,
+      "brier": 0.708,
+      "ece": 0.0672,
+      "accuracy": 0.445
+    },
+    "template_holdout": {
+      "nll": 1.4422,
+      "brier": 0.726,
+      "ece": 0.0573,
+      "accuracy": 0.4163
+    },
+    "onnx_parity_max_diff": 4.76837158203125e-07,
+    "manifest_path": "E:\\Study\\Year4\\CE1\\AdaptiveDriving\\Python\\artifacts\\tactical_response_manifest.json",
+    "onnx_path": "E:\\Study\\Year4\\CE1\\AdaptiveDriving\\Python\\artifacts\\tactical_response.onnx",
+    "cpu_latency": {
+      "p50_ms": 0.0228,
+      "p95_ms": 0.0245,
+      "p99_ms": 0.0524
+    }
+  },
+  "m02_calibration": {
+    "table_path": "E:\\Study\\Year4\\CE1\\AdaptiveDriving\\Python\\artifacts\\m02_pace_table.json",
+    "driver_version": "v1.2-acwm",
+    "num_tables": 6,
+    "monotonic_verified": true,
+    "unity_sweep_levels_used": 5
+  },
+  "m01_pace_ensemble": {
+    "n_train": 1350,
+    "n_val": 342,
+    "n_holdout": 2088,
+    "holdout_1step": {
+      "m01_mae_norm": 0.0259,
+      "rolling_mae_norm": 0.0339,
+      "m01_rmse_norm": 0.0356,
+      "coverage_90": 0.7917,
+      "mean_disagreement": 0.0044,
+      "ood_mean_disagreement": 0.0266
+    },
+    "cold_start_breakdown": {
+      "0_clean": {
+        "n": 191,
+        "m01_mae_norm": 0.0631,
+        "rolling_mae_norm": 0.0553,
+        "mean_pred_std": 0.0604,
+        "coverage_90": 0.8115
+      },
+      "1_to_3_clean": {
+        "n": 816,
+        "m01_mae_norm": 0.0234,
+        "rolling_mae_norm": 0.0366,
+        "mean_pred_std": 0.0223,
+        "coverage_90": 0.7978
+      },
+      "gt_3_clean": {
+        "n": 1081,
+        "m01_mae_norm": 0.0211,
+        "rolling_mae_norm": 0.0281,
+        "mean_pred_std": 0.0196,
+        "coverage_90": 0.7835
+      }
+    },
+    "multistep_rollout_H3": {
+      "n_holdout_sequences": 232,
+      "m01_mae_s_by_step": [
+        0.974,
+        1.405,
+        1.301
+      ],
+      "rolling_baseline_mae_s_by_step": [
+        1.372,
+        1.563,
+        1.515
+      ],
+      "m01_3step_gap_mae_s": 3.123,
+      "interval_90_coverage": 0.8003
+    },
+    "onnx_parity_max_diff": 9.5367431640625e-07,
+    "manifest_path": "E:\\Study\\Year4\\CE1\\AdaptiveDriving\\Python\\artifacts\\m01_pace_ensemble_manifest.json",
+    "cpu_latency_per_member": {
+      "p50_ms": 0.0232,
+      "p95_ms": 0.0271,
+      "p99_ms": 0.1545
+    }
+  },
+  "deployed_to_unity": [
+    "E:\\Study\\Year4\\CE1\\AdaptiveDriving\\Unity\\Assets\\StreamingAssets\\AIModels\\tactical_response_manifest.json",
+    "E:\\Study\\Year4\\CE1\\AdaptiveDriving\\Unity\\Assets\\StreamingAssets\\AIModels\\tactical_response.onnx",
+    "E:\\Study\\Year4\\CE1\\AdaptiveDriving\\Unity\\Assets\\StreamingAssets\\AIModels\\m02_pace_table.json",
+    "E:\\Study\\Year4\\CE1\\AdaptiveDriving\\Unity\\Assets\\StreamingAssets\\AIModels\\m01_pace_ensemble_manifest.json",
+    "E:\\Study\\Year4\\CE1\\AdaptiveDriving\\Unity\\Assets\\StreamingAssets\\AIModels\\m01_member_0.onnx",
+    "E:\\Study\\Year4\\CE1\\AdaptiveDriving\\Unity\\Assets\\StreamingAssets\\AIModels\\m01_member_1.onnx",
+    "E:\\Study\\Year4\\CE1\\AdaptiveDriving\\Unity\\Assets\\StreamingAssets\\AIModels\\m01_member_2.onnx"
+  ]
+}

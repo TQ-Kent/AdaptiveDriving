@@ -1,0 +1,218 @@
+{
+  "data_provenance": "SIMULATED_ONLY (human playtest partition pending opt-in human sessions)",
+  "release_gate_approved": true,
+  "hairpin_style_demo": {
+    "ActionConditionedTemplate": {
+      "decision_changed_from_forecasts": true,
+      "profiles": {
+        "LateBrakerProfile": {
+          "chosen": "DefendInside",
+          "candidates": {
+            "HoldLine": {
+              "expected_margin_s": -0.015,
+              "expected_risk": 0.093,
+              "utility": -0.106,
+              "top_predicted_response": "LateBrake"
+            },
+            "DefendInside": {
+              "expected_margin_s": 0.102,
+              "expected_risk": 0.003,
+              "utility": 0.012,
+              "top_predicted_response": "LateBrake"
+            }
+          }
+        },
+        "SwitchbackProneProfile": {
+          "chosen": "HoldLine",
+          "candidates": {
+            "HoldLine": {
+              "expected_margin_s": 0.246,
+              "expected_risk": 0.09,
+              "utility": 0.213,
+              "top_predicted_response": "Switchback"
+            },
+            "DefendInside": {
+              "expected_margin_s": 0.065,
+              "expected_risk": 0.002,
+              "utility": -0.054,
+              "top_predicted_response": "Switchback"
+            }
+          }
+        }
+      }
+    },
+    "ActionConditionedNeural": {
+      "decision_changed_from_forecasts": true,
+      "profiles": {
+        "LateBrakerProfile": {
+          "chosen": "DefendInside",
+          "candidates": {
+            "HoldLine": {
+              "expected_margin_s": -0.154,
+              "expected_risk": 0.072,
+              "utility": -0.268,
+              "top_predicted_response": "LateBrake"
+            },
+            "DefendInside": {
+              "expected_margin_s": 0.034,
+              "expected_risk": 0.002,
+              "utility": -0.091,
+              "top_predicted_response": "Switchback"
+            }
+          }
+        },
+        "SwitchbackProneProfile": {
+          "chosen": "HoldLine",
+          "candidates": {
+            "HoldLine": {
+              "expected_margin_s": 0.166,
+              "expected_risk": 0.085,
+              "utility": 0.116,
+              "top_predicted_response": "Switchback"
+            },
+            "DefendInside": {
+              "expected_margin_s": 0.019,
+              "expected_risk": 0.002,
+              "utility": -0.119,
+              "top_predicted_response": "Switchback"
+            }
+          }
+        }
+      }
+    }
+  },
+  "tactical_variant_comparison": {
+    "Scripted": {
+      "total_duels": 1080,
+      "clean_passes": 216,
+      "clean_pass_rate": 0.3744,
+      "clean_defenses": 189,
+      "clean_defense_rate": 0.3757,
+      "contacts": 71,
+      "contact_rate": 0.0657,
+      "off_track_events": 13,
+      "aborts": 0,
+      "safety_overrides": 501,
+      "decision_latency_p50_ms": 0.001,
+      "decision_latency_p99_ms": 0.0018
+    },
+    "NonInteractiveLookahead": {
+      "total_duels": 1080,
+      "clean_passes": 217,
+      "clean_pass_rate": 0.3761,
+      "clean_defenses": 211,
+      "clean_defense_rate": 0.4195,
+      "contacts": 19,
+      "contact_rate": 0.0176,
+      "off_track_events": 21,
+      "aborts": 244,
+      "safety_overrides": 482,
+      "decision_latency_p50_ms": 1.1944,
+      "decision_latency_p99_ms": 2.934
+    },
+    "ActionConditionedTemplate": {
+      "total_duels": 1080,
+      "clean_passes": 182,
+      "clean_pass_rate": 0.3154,
+      "clean_defenses": 275,
+      "clean_defense_rate": 0.5467,
+      "contacts": 22,
+      "contact_rate": 0.0204,
+      "off_track_events": 20,
+      "aborts": 197,
+      "safety_overrides": 420,
+      "decision_latency_p50_ms": 2.7954,
+      "decision_latency_p99_ms": 5.3788
+    },
+    "ActionConditionedNeural": {
+      "total_duels": 1080,
+      "clean_passes": 189,
+      "clean_pass_rate": 0.3276,
+      "clean_defenses": 317,
+      "clean_defense_rate": 0.6302,
+      "contacts": 19,
+      "contact_rate": 0.0176,
+      "off_track_events": 21,
+      "aborts": 209,
+      "safety_overrides": 407,
+      "decision_latency_p50_ms": 2.9408,
+      "decision_latency_p99_ms": 5.7361
+    }
+  },
+  "challenge_adaptation_comparison": {
+    "CompetitiveSeason": {
+      "FixedDefault": {
+        "mean_pace_band_error_s": 2.45,
+        "cold_start_band_error_s": {
+          "0_clean": 2.712,
+          "1_to_3_clean": 2.409,
+          "gt_3_clean": 2.255
+        },
+        "total_live_difficulty_changes": 0,
+        "fairness_policy_violations": 0,
+        "mean_personalization_bias_reduction_s": 0.0
+      },
+      "RuleBasedA08": {
+        "mean_pace_band_error_s": 2.065,
+        "cold_start_band_error_s": {
+          "0_clean": 2.712,
+          "1_to_3_clean": 2.028,
+          "gt_3_clean": 1.525
+        },
+        "total_live_difficulty_changes": 0,
+        "fairness_policy_violations": 0,
+        "mean_personalization_bias_reduction_s": 0.0
+      },
+      "PredictiveMPC": {
+        "mean_pace_band_error_s": 1.73,
+        "cold_start_band_error_s": {
+          "0_clean": 2.712,
+          "1_to_3_clean": 1.431,
+          "gt_3_clean": 1.127
+        },
+        "total_live_difficulty_changes": 0,
+        "fairness_policy_violations": 0,
+        "mean_personalization_bias_reduction_s": 0.686
+      }
+    },
+    "AdaptiveTraining": {
+      "FixedDefault": {
+        "mean_pace_band_error_s": 2.45,
+        "cold_start_band_error_s": {
+          "0_clean": 2.712,
+          "1_to_3_clean": 2.409,
+          "gt_3_clean": 2.255
+        },
+        "total_live_difficulty_changes": 0,
+        "fairness_policy_violations": 0,
+        "mean_personalization_bias_reduction_s": 0.0
+      },
+      "RuleBasedA08": {
+        "mean_pace_band_error_s": 1.911,
+        "cold_start_band_error_s": {
+          "0_clean": 2.531,
+          "1_to_3_clean": 1.844,
+          "gt_3_clean": 1.421
+        },
+        "total_live_difficulty_changes": 518,
+        "fairness_policy_violations": 0,
+        "mean_personalization_bias_reduction_s": 0.0
+      },
+      "PredictiveMPC": {
+        "mean_pace_band_error_s": 1.609,
+        "cold_start_band_error_s": {
+          "0_clean": 2.506,
+          "1_to_3_clean": 1.34,
+          "gt_3_clean": 1.055
+        },
+        "total_live_difficulty_changes": 524,
+        "fairness_policy_violations": 0,
+        "mean_personalization_bias_reduction_s": 0.686
+      }
+    }
+  },
+  "human_playtest_status": {
+    "completed_human_sessions": 0,
+    "note": "Simulated closeness and bot pass/defense rates do not prove subjective human enjoyment or fairness; opt-in human playtests with Likert fairness/enjoyment ratings are required separately."
+  }
+}

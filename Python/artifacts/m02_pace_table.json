@@ -1,0 +1,463 @@
+{
+  "schema_version": 1,
+  "generated_utc": "2026-11-28T10:31:41Z",
+  "driver_version": "v1.2-acwm",
+  "tables": [
+    {
+      "track_id": "MonzaScaled",
+      "driver_version": "v1.2-acwm",
+      "traffic_mode": "clean_air",
+      "reference_lap_s": 40.469,
+      "min_supported_difficulty": 0.0,
+      "max_supported_difficulty": 1.0,
+      "entries": [
+        {
+          "difficulty": 0.0,
+          "expected_lap_s": 48.313,
+          "std_lap_s": 0.08,
+          "sample_count": 3
+        },
+        {
+          "difficulty": 0.1,
+          "expected_lap_s": 46.996,
+          "std_lap_s": 0.08,
+          "sample_count": 0
+        },
+        {
+          "difficulty": 0.2,
+          "expected_lap_s": 45.68,
+          "std_lap_s": 0.08,
+          "sample_count": 0
+        },
+        {
+          "difficulty": 0.3,
+          "expected_lap_s": 44.443,
+          "std_lap_s": 0.08,
+          "sample_count": 0
+        },
+        {
+          "difficulty": 0.4,
+          "expected_lap_s": 43.286,
+          "std_lap_s": 0.08,
+          "sample_count": 0
+        },
+        {
+          "difficulty": 0.5,
+          "expected_lap_s": 42.129,
+          "std_lap_s": 0.08,
+          "sample_count": 3
+        },
+        {
+          "difficulty": 0.6,
+          "expected_lap_s": 41.95,
+          "std_lap_s": 0.233,
+          "sample_count": 0
+        },
+        {
+          "difficulty": 0.7,
+          "expected_lap_s": 41.771,
+          "std_lap_s": 0.386,
+          "sample_count": 0
+        },
+        {
+          "difficulty": 0.8,
+          "expected_lap_s": 41.439,
+          "std_lap_s": 0.386,
+          "sample_count": 0
+        },
+        {
+          "difficulty": 0.9,
+          "expected_lap_s": 40.954,
+          "std_lap_s": 0.233,
+          "sample_count": 0
+        },
+        {
+          "difficulty": 1.0,
+          "expected_lap_s": 40.469,
+          "std_lap_s": 0.08,
+          "sample_count": 3
+        }
+      ]
+    },
+    {
+      "track_id": "MonzaScaled",
+      "driver_version": "v1.2-acwm",
+      "traffic_mode": "traffic",
+      "reference_lap_s": 40.469,
+      "min_supported_difficulty": 0.0,
+      "max_supported_difficulty": 1.0,
+      "entries": [
+        {
+          "difficulty": 0.0,
+          "expected_lap_s": 48.778,
+          "std_lap_s": 0.428,
+          "sample_count": 16
+        },
+        {
+          "difficulty": 0.1,
+          "expected_lap_s": 47.489,
+          "std_lap_s": 0.428,
+          "sample_count": 16
+        },
+        {
+          "difficulty": 0.2,
+          "expected_lap_s": 46.201,
+          "std_lap_s": 0.428,
+          "sample_count": 16
+        },
+        {
+          "difficulty": 0.3,
+          "expected_lap_s": 44.992,
+          "std_lap_s": 0.428,
+          "sample_count": 16
+        },
+        {
+          "difficulty": 0.4,
+          "expected_lap_s": 43.863,
+          "std_lap_s": 0.428,
+          "sample_count": 16
+        },
+        {
+          "difficulty": 0.5,
+          "expected_lap_s": 42.733,
+          "std_lap_s": 0.428,
+          "sample_count": 16
+        },
+        {
+          "difficulty": 0.6,
+          "expected_lap_s": 42.583,
+          "std_lap_s": 0.48,
+          "sample_count": 16
+        },
+        {
+          "difficulty": 0.7,
+          "expected_lap_s": 42.432,
+          "std_lap_s": 0.571,
+          "sample_count": 16
+        },
+        {
+          "difficulty": 0.8,
+          "expected_lap_s": 42.128,
+          "std_lap_s": 0.571,
+          "sample_count": 16
+        },
+        {
+          "difficulty": 0.9,
+          "expected_lap_s": 41.67,
+          "std_lap_s": 0.48,
+          "sample_count": 16
+        },
+        {
+          "difficulty": 1.0,
+          "expected_lap_s": 41.213,
+          "std_lap_s": 0.428,
+          "sample_count": 16
+        }
+      ]
+    },
+    {
+      "track_id": "SilverstoneStyle",
+      "driver_version": "v1.2-acwm",
+      "traffic_mode": "clean_air",
+      "reference_lap_s": 56.5,
+      "min_supported_difficulty": 0.0,
+      "max_supported_difficulty": 1.0,
+      "entries": [
+        {
+          "difficulty": 0.0,
+          "expected_lap_s": 68.909,
+          "std_lap_s": 0.238,
+          "sample_count": 12
+        },
+        {
+          "difficulty": 0.1,
+          "expected_lap_s": 66.668,
+          "std_lap_s": 0.162,
+          "sample_count": 12
+        },
+        {
+          "difficulty": 0.2,
+          "expected_lap_s": 65.036,
+          "std_lap_s": 0.226,
+          "sample_count": 12
+        },
+        {
+          "difficulty": 0.3,
+          "expected_lap_s": 63.778,
+          "std_lap_s": 0.257,
+          "sample_count": 12
+        },
+        {
+          "difficulty": 0.4,
+          "expected_lap_s": 62.652,
+          "std_lap_s": 0.164,
+          "sample_count": 12
+        },
+        {
+          "difficulty": 0.5,
+          "expected_lap_s": 61.313,
+          "std_lap_s": 0.215,
+          "sample_count": 12
+        },
+        {
+          "difficulty": 0.6,
+          "expected_lap_s": 60.413,
+          "std_lap_s": 0.213,
+          "sample_count": 12
+        },
+        {
+          "difficulty": 0.7,
+          "expected_lap_s": 59.3,
+          "std_lap_s": 0.181,
+          "sample_count": 12
+        },
+        {
+          "difficulty": 0.8,
+          "expected_lap_s": 58.321,
+          "std_lap_s": 0.269,
+          "sample_count": 12
+        },
+        {
+          "difficulty": 0.9,
+          "expected_lap_s": 57.442,
+          "std_lap_s": 0.239,
+          "sample_count": 12
+        },
+        {
+          "difficulty": 1.0,
+          "expected_lap_s": 56.509,
+          "std_lap_s": 0.199,
+          "sample_count": 12
+        }
+      ]
+    },
+    {
+      "track_id": "SilverstoneStyle",
+      "driver_version": "v1.2-acwm",
+      "traffic_mode": "traffic",
+      "reference_lap_s": 56.5,
+      "min_supported_difficulty": 0.0,
+      "max_supported_difficulty": 1.0,
+      "entries": [
+        {
+          "difficulty": 0.0,
+          "expected_lap_s": 69.601,
+          "std_lap_s": 0.581,
+          "sample_count": 16
+        },
+        {
+          "difficulty": 0.1,
+          "expected_lap_s": 67.15,
+          "std_lap_s": 0.424,
+          "sample_count": 16
+        },
+        {
+          "difficulty": 0.2,
+          "expected_lap_s": 65.675,
+          "std_lap_s": 0.498,
+          "sample_count": 16
+        },
+        {
+          "difficulty": 0.3,
+          "expected_lap_s": 64.382,
+          "std_lap_s": 0.536,
+          "sample_count": 16
+        },
+        {
+          "difficulty": 0.4,
+          "expected_lap_s": 63.455,
+          "std_lap_s": 0.35,
+          "sample_count": 16
+        },
+        {
+          "difficulty": 0.5,
+          "expected_lap_s": 62.142,
+          "std_lap_s": 0.392,
+          "sample_count": 16
+        },
+        {
+          "difficulty": 0.6,
+          "expected_lap_s": 61.371,
+          "std_lap_s": 0.565,
+          "sample_count": 16
+        },
+        {
+          "difficulty": 0.7,
+          "expected_lap_s": 60.086,
+          "std_lap_s": 0.562,
+          "sample_count": 16
+        },
+        {
+          "difficulty": 0.8,
+          "expected_lap_s": 59.031,
+          "std_lap_s": 0.543,
+          "sample_count": 16
+        },
+        {
+          "difficulty": 0.9,
+          "expected_lap_s": 58.192,
+          "std_lap_s": 0.512,
+          "sample_count": 16
+        },
+        {
+          "difficulty": 1.0,
+          "expected_lap_s": 57.202,
+          "std_lap_s": 0.529,
+          "sample_count": 16
+        }
+      ]
+    },
+    {
+      "track_id": "TightHairpinCircuit",
+      "driver_version": "v1.2-acwm",
+      "traffic_mode": "clean_air",
+      "reference_lap_s": 46.8,
+      "min_supported_difficulty": 0.0,
+      "max_supported_difficulty": 1.0,
+      "entries": [
+        {
+          "difficulty": 0.0,
+          "expected_lap_s": 58.013,
+          "std_lap_s": 0.221,
+          "sample_count": 12
+        },
+        {
+          "difficulty": 0.1,
+          "expected_lap_s": 55.894,
+          "std_lap_s": 0.206,
+          "sample_count": 12
+        },
+        {
+          "difficulty": 0.2,
+          "expected_lap_s": 54.722,
+          "std_lap_s": 0.197,
+          "sample_count": 12
+        },
+        {
+          "difficulty": 0.3,
+          "expected_lap_s": 53.392,
+          "std_lap_s": 0.226,
+          "sample_count": 12
+        },
+        {
+          "difficulty": 0.4,
+          "expected_lap_s": 52.201,
+          "std_lap_s": 0.228,
+          "sample_count": 12
+        },
+        {
+          "difficulty": 0.5,
+          "expected_lap_s": 51.206,
+          "std_lap_s": 0.17,
+          "sample_count": 12
+        },
+        {
+          "difficulty": 0.6,
+          "expected_lap_s": 50.317,
+          "std_lap_s": 0.151,
+          "sample_count": 12
+        },
+        {
+          "difficulty": 0.7,
+          "expected_lap_s": 49.355,
+          "std_lap_s": 0.236,
+          "sample_count": 12
+        },
+        {
+          "difficulty": 0.8,
+          "expected_lap_s": 48.492,
+          "std_lap_s": 0.209,
+          "sample_count": 12
+        },
+        {
+          "difficulty": 0.9,
+          "expected_lap_s": 47.635,
+          "std_lap_s": 0.199,
+          "sample_count": 12
+        },
+        {
+          "difficulty": 1.0,
+          "expected_lap_s": 46.71,
+          "std_lap_s": 0.227,
+          "sample_count": 12
+        }
+      ]
+    },
+    {
+      "track_id": "TightHairpinCircuit",
+      "driver_version": "v1.2-acwm",
+      "traffic_mode": "traffic",
+      "reference_lap_s": 46.8,
+      "min_supported_difficulty": 0.0,
+      "max_supported_difficulty": 1.0,
+      "entries": [
+        {
+          "difficulty": 0.0,
+          "expected_lap_s": 58.563,
+          "std_lap_s": 0.44,
+          "sample_count": 16
+        },
+        {
+          "difficulty": 0.1,
+          "expected_lap_s": 56.5,
+          "std_lap_s": 0.466,
+          "sample_count": 16
+        },
+        {
+          "difficulty": 0.2,
+          "expected_lap_s": 55.367,
+          "std_lap_s": 0.398,
+          "sample_count": 16
+        },
+        {
+          "difficulty": 0.3,
+          "expected_lap_s": 54.306,
+          "std_lap_s": 0.377,
+          "sample_count": 16
+        },
+        {
+          "difficulty": 0.4,
+          "expected_lap_s": 53.271,
+          "std_lap_s": 0.588,
+          "sample_count": 16
+        },
+        {
+          "difficulty": 0.5,
+          "expected_lap_s": 52.33,
+          "std_lap_s": 0.593,
+          "sample_count": 16
+        },
+        {
+          "difficulty": 0.6,
+          "expected_lap_s": 51.248,
+          "std_lap_s": 0.418,
+          "sample_count": 16
+        },
+        {
+          "difficulty": 0.7,
+          "expected_lap_s": 50.376,
+          "std_lap_s": 0.41,
+          "sample_count": 16
+        },
+        {
+          "difficulty": 0.8,
+          "expected_lap_s": 49.372,
+          "std_lap_s": 0.388,
+          "sample_count": 16
+        },
+        {
+          "difficulty": 0.9,
+          "expected_lap_s": 48.486,
+          "std_lap_s": 0.346,
+          "sample_count": 16
+        },
+        {
+          "difficulty": 1.0,
+          "expected_lap_s": 47.838,
+          "std_lap_s": 0.554,
+          "sample_count": 16
+        }
+      ]
+    }
+  ]
+}
